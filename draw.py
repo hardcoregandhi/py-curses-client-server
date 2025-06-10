@@ -20,12 +20,22 @@ class ScreenMeasurements:
         self.bottom_panel = curses.newwin(self.half_height, self.width, self.top_panel_height, 0)
     def round_to_even(self, n):
         return n if n % 2 == 0 else n - 1
+    
+
+def create_health_bar(current_health, max_health, bar_length=30):
+    # Calculate the proportion of health
+    health_ratio = current_health / max_health
+    filled_length = int(bar_length * health_ratio)  # Calculate filled length of the bar
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)  # Create the bar
+
+    # Print the health bar
+    return (f"|{bar}| {current_health}/{max_health} ({health_ratio:.0%})")
 
 def draw_map(window, screen, game_map, character, player_positions):
     # Calculate the starting position to draw the map
     window_height, window_width = window.getmaxyx()
-    start_x = max(0, character.position.x - window_width // 2)
-    start_y = max(0, character.position.y - window_height // 2)
+    start_x = max(0, character.position.x - window_width // 2) -2
+    start_y = max(0, character.position.y - window_height // 2) -2
 
     # Draw the map within the window
     for y in range(window_height):
@@ -51,17 +61,43 @@ def draw_map(window, screen, game_map, character, player_positions):
 
 def draw(screen, output, input_buffer, game_map, character, player_positions):
     # Clear the screen
-    draw_top_left(screen)
+    draw_top_left(screen, character)
     # draw_top_right(screen)
     draw_map(screen.top_panel2, screen, game_map, character, player_positions)
     draw_bottom(screen, output, input_buffer)
 
-def draw_top_left(screen):
+def draw_top_left(screen, character):
     # Create the first top panel (window)
-    screen.top_panel1.addstr(0, 1, "Top Panel 1", curses.A_BOLD)
-    screen.top_panel1.addstr(1, 1, "This is the first top panel.")
-    screen.top_panel1.addstr(2, 1, f"height {screen.height} width {screen.width}")
     screen.top_panel1.box()
+    screen.top_panel1.addstr(0, 1, "Character Sheet", curses.A_BOLD)
+    (panel_height, panel_width) = screen.top_panel1.getmaxyx()
+    # Initialize variables
+    max_entries_per_column = (panel_height-4)  # Maximum number of entries that can fit in one column
+    current_column = 0
+    current_row = 1
+
+    # Iterate through the character's attributes
+    for i, (entry, value) in enumerate(character.__dict__.items()):
+        if "max_" in entry:
+            continue
+        text = f"{entry.capitalize():<{10}} : {value}"[:panel_width]
+        # Check if we need to move to the next column
+        if current_row >= max_entries_per_column:
+            current_column += 1
+            current_row = 1
+
+        # Calculate the position to draw the entry
+        x = screen.round_to_even(3 + current_column * (panel_width / 2))  # Add some space between columns
+        y = current_row
+
+        # Draw the entry in the specified position
+        screen.top_panel1.addstr(y, int(x), text)
+
+        # Move to the next row
+        current_row += 1
+    screen.top_panel1.addstr(panel_height -4, 2, f"{'Health':<{11}}: " + create_health_bar(character.health, character.max_health))
+    screen.top_panel1.addstr(panel_height -3, 2, f"{'Stamina':<{11}}: " + create_health_bar(character.stamina, character.max_stamina))
+    screen.top_panel1.addstr(panel_height -2, 2, f"{'Mana':<{11}}: " + create_health_bar(character.mana, character.max_mana))
     screen.top_panel1.refresh()
 
 def draw_top_right(screen):

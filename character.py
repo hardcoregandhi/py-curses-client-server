@@ -1,18 +1,43 @@
 from collections import namedtuple
+from typing import NamedTuple
 
-Position2D = namedtuple('Position2D', ['x', 'y'])
+class Position2D(NamedTuple):
+    x : int
+    y : int
+
+    def __str__(self):
+        return f"{self.x}, {self.y}"
+    
+    def to_dict(self):
+        return {'x': self.x, 'y': self.y}
 
 class Character:
     def __init__(self, name = "Unnamed"):
         # Get the height and width of the window and round to even
         self.name = name
-        self.health = 5
-        self.stamina = 5
-        self.mana = 5
+        self.level = 1
+        self.xp = 0
+        self.health = self.max_health = 5
+        self.stamina = self.max_stamina = 5
+        self.mana = self.max_mana = 5
         self.strength = 5
         self.defence = 5
         self.speed = 5
         self.position = Position2D(5,5)
+    
+    def __iter__(self):
+        yield {
+            "name" : self.name, 
+            "level" : self.level, 
+            "xp" : self.xp, 
+            "health" : self.health, 
+            "stamina" : self.stamina, 
+            "mana" : self.mana, 
+            "strength" : self.strength, 
+            "defence" : self.defence, 
+            "speed" : self.speed, 
+            "position" : self.position
+        }
 
     def moveTo(self, new_x, new_y, game_map):
         """Move the character to a new position if valid."""
