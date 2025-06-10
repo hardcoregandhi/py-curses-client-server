@@ -32,10 +32,11 @@ def create_health_bar(current_health, max_health, bar_length=30):
     return (f"|{bar}| {current_health}/{max_health} ({health_ratio:.0%})")
 
 def draw_map(window, screen, game_map, character, player_positions):
+    screen.top_panel2.clear()
     # Calculate the starting position to draw the map
     window_height, window_width = window.getmaxyx()
-    start_x = max(0, character.position.x - window_width // 2) -2
-    start_y = max(0, character.position.y - window_height // 2) -2
+    start_x = max(1, character.position.x - window_width // 2) -2
+    start_y = max(1, character.position.y - window_height // 2) -2
 
     # Draw the map within the window
     for y in range(window_height):
@@ -87,7 +88,7 @@ def draw_top_left(screen, character):
             current_row = 1
 
         # Calculate the position to draw the entry
-        x = screen.round_to_even(3 + current_column * (panel_width / 2))  # Add some space between columns
+        x = screen.round_to_even(3 + current_column * (panel_width / 3))  # Add some space between columns
         y = current_row
 
         # Draw the entry in the specified position
