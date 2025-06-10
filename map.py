@@ -77,7 +77,7 @@ default_map_string = \
 "wwwwwwwwwwwwwwwwwwwwwwwwwwbwwwwwwwwwwwwwrwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwmwwwwwwwwwwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwwwwwwwwwwwwwwww"\
-"rrrbrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrbrrrw"\
+"rrrbrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrbrrr"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwwwwwwwwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwrmmwwwwwrwwwwwwwwwwwwwwwwwwwwwww"\
 "wwwwwwwwwwwwwwwwrrrwwwwwwwrwwwwwwwwwmmwcwwwwwwwwww"\
