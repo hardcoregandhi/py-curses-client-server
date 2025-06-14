@@ -1,12 +1,83 @@
 import random
 
+# class Tile:
+#     def __init__(self, tile_type, additional_data=None):
+#         self.tile_type = tile_type
+#         self.active_timer = None
+#         self.ready = False
+#         self.additional_data = additional_data or {}
+
+#     def __repr__(self):
+#         return f"Tile(type={self.tile_type}, data={self.additional_data})"
+    
+import threading
+import uuid
+import json
+
 class Tile:
     def __init__(self, tile_type, additional_data=None):
         self.tile_type = tile_type
+        self.work_time = 5  # Time before the tile can be activated
+        self.cooldown_time = 5      # Time before the tile can be activated again
+        self.is_ready_to_work = True        # Indicates if the tile can be worked
+        self.is_finished_work = False        # Indicates if the tile has finished work
         self.additional_data = additional_data or {}
+        self.id = str(uuid.uuid4())  # Generate a unique ID
 
     def __repr__(self):
         return f"Tile(type={self.tile_type}, data={self.additional_data})"
+
+    def work_complete(self):
+        """Called when the activation timer completes."""
+        print(f"Tile {self.id} is ready to activate.")
+        self.is_ready_to_work = False
+        self.is_finished_work = True
+        # Notify players that the tile can be activated
+        self.notify_players()
+
+    def work(self):
+        """Player works the tile, starting the work timer."""
+        if self.is_ready_to_work:
+            print(f"Player works tile {self.id}.")
+            self.is_ready_to_work = False
+            self.is_finished_work = False
+            # Start the activation timer
+            threading.Timer(self.work_time, self.work_complete).start()
+        else:
+            print(f"Tile {self.id} is not ready to work.")
+
+    def cooldown(self):
+        """Player activates the tile, starting the cooldown timer."""
+        if self.is_finished_work:
+            print(f"Player activates tile {self.id}.")
+            self.is_finished_work = False
+            # Start the cooldown timer
+            threading.Timer(self.cooldown_time, self.cooldown_complete).start()
+        else:
+            print(f"Tile {self.id} is not finished working.")
+
+    def cooldown_complete(self):
+        """Called when the cooldown timer completes."""
+        print(f"Tile {self.id} is ready to be worked again.")
+        self.is_ready_to_work = True
+        # Notify players that the tile can be worked again
+        self.notify_players()
+
+    def notify_players(self):
+        """Notify players about the tile's status."""
+        # Implement your notification logic here
+        print(f"Notify players: Tile {self.id} status updated.")
+
+    def to_dict(self):
+        return {
+            'tile_type' : self.tile_type,
+            'work_time' : self.work_time,
+            'cooldown_time' : self.cooldown_time,
+            'is_ready_to_work' : self.is_ready_to_work,
+            'is_finished_work' : self.is_finished_work,
+            'additional_data' : self.additional_data,
+            'id' : self.id,
+        }
 
 
 class GameMap:
@@ -60,6 +131,9 @@ class GameMap:
     def get_cell_data(self, x, y):
         return self.additional_data.get((y, x), None)
     
+    def get_tile(self, position):
+        return self.get_tile(position.x, position.y)
+
     def get_tile(self, x, y):
         """Retrieve the tile at the specified coordinates."""
         if 0 <= x < self.width and 0 <= y < self.height:
@@ -70,6 +144,14 @@ class GameMap:
         """Check if the tile at (x, y) is walkable."""
         tile = self.get_tile(x, y)
         return tile and tile.tile_type not in ['unknown', 'mountain', 'river']  # Add more non-walkable types as needed
+
+    def to_dict(self):
+        return {
+            'width': self.width,
+            'height': self.height,
+            'map': [[tile.to_dict() for tile in row] for row in self.map],
+            'additional_data': self.additional_data
+        }
 
     
 default_map_string = \
@@ -153,6 +235,21 @@ class MapGenerator:
         print(formatted_map_string)  # Print the formatted string for copy-pasting
         return map_string
 
+
+class GameMapEncoderDecoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, GameMap):
+            return obj.to_dict()
+        return super().default(obj)
+
+    @staticmethod
+    def from_dict(data):
+        width = data['width']
+        height = data['height']
+        map_string = ''.join([''.join([tile['tile_type'][0] for tile in row]) for row in data['map']])
+        game_map = GameMap(width, height, map_string)
+        game_map.additional_data = data.get('additional_data', {})
+        return game_map
 
 # Example usage
 if __name__ == "__main__":

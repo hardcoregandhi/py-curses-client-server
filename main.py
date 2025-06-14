@@ -3,10 +3,14 @@ from server import add_upnp_port_mapping
 import map
 from character import Character, Position2D
 from draw import draw, ScreenMeasurements
-from client import create_connection, send_update, positions_lock, player_positions
+from client import send_update, send_position_update, send_tile_update, positions_lock, player_positions, Connection
 
 
-def handle_input(key, input_buffer, output, character, game_map):
+def try_move_player(connection, character, x, y, game_map):
+    if character.moveTo(x, y, game_map):
+        send_position_update(connection, character)
+
+def handle_input(key, input_buffer, output, character, game_map, connection):
     """Handle user input and update the input buffer and character position."""
     if key in (curses.KEY_BACKSPACE, 8):  # Handle backspace
         input_buffer = input_buffer[:-1]  # Remove the last character
@@ -14,19 +18,25 @@ def handle_input(key, input_buffer, output, character, game_map):
         # Process the command
         if input_buffer.strip() == "quit":
             output = "Quitting..."  # Placeholder for future functionality
+        elif input_buffer.strip() in ["w", "work"]:
+            output = "Working tile..."
+            send_update(connection, character, "work")
+        elif input_buffer.strip() in ["a", "activate"]:
+            output = "Activating tile..."
+            send_update(connection, character, "activate")
         elif input_buffer.strip() == "run":
             output = "Running command..."  # Placeholder for future functionality
         else:
             output = f"Unknown command: {input_buffer.strip()}"
         input_buffer = ""  # Clear the input buffer after processing
     elif key == curses.KEY_UP:  # Move up
-        character.moveTo(character.position.x, character.position.y - 1, game_map)
+        try_move_player(connection, character, character.position.x, character.position.y - 1, game_map)
     elif key == curses.KEY_DOWN:  # Move down
-        character.moveTo(character.position.x, character.position.y + 1, game_map)
+        try_move_player(connection, character, character.position.x, character.position.y + 1, game_map)
     elif key == curses.KEY_LEFT:  # Move left
-        character.moveTo(character.position.x - 1, character.position.y, game_map)
+        try_move_player(connection, character, character.position.x - 1, character.position.y, game_map)
     elif key == curses.KEY_RIGHT:  # Move right
-        character.moveTo(character.position.x + 1, character.position.y, game_map)
+        try_move_player(connection, character, character.position.x + 1, character.position.y, game_map)
     elif 32 <= key <= 126:  # Handle printable characters
         input_buffer += chr(key)  # Add character to input buffer
 
@@ -52,17 +62,16 @@ def main(stdscr):
     game_map, character = init_game()
 
     # Create connection to the server
-    username='Player1'
-    host='127.0.0.1'
-    client_socket = create_connection(host, 43210, username)
+    connection = Connection()
+    game_map = connection.map
+    send_position_update(connection, character)
 
     while True:
         with positions_lock:
             draw(screen, output, input_buffer, game_map, character, player_positions)  # Call draw to update the display
         key = stdscr.getch()  # Get user input
 
-        input_buffer, output = handle_input(key, input_buffer, output, character, game_map)
-        send_update(client_socket, username, character)
+        input_buffer, output = handle_input(key, input_buffer, output, character, game_map, connection)
     # Close the socket when done (this part may not be reached in a typical game loop)
     client_socket.close()
 

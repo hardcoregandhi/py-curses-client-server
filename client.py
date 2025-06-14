@@ -4,10 +4,51 @@ import socket
 import threading
 
 from character import Position2D
-
+from map import GameMapEncoderDecoder
+import gzip 
+from struct import unpack
+import os 
 # Global variable to hold player positions
 player_positions = {}
 positions_lock = threading.Lock()  # Lock for thread-safe access to player_positions
+
+class Connection:
+    def __init__(self):
+        self.username, self.client_socket = create_connection()
+        self.map = self.download_map()
+
+        # Start a thread to receive messages from the server
+        threading.Thread(target=receive_messages, args=(self.client_socket,), daemon=True).start()
+
+    def download_map(self):
+        data_packet = {
+            'request': 'map',
+        }
+        self.client_socket.sendall(json.dumps(data_packet).encode('utf-8'))
+        while True:
+            bs = self.client_socket.recv(8)
+            print(f"Raw bytes received for length: {bs}")
+            (length,) = unpack('>Q', bs)  # Unpack the length
+            print(f"Unpacked length: {length}")  # Print the unpacked length
+            data = b''
+            while len(data) < length:
+                # doing it in batches is generally better than trying
+                # to do it all in one go, so I believe.
+                to_read = length - len(data)
+                data += self.client_socket.recv(
+                    4096 if to_read > 4096 else to_read)
+
+            # send our 0 ack
+            assert len(b'\00') == 1
+            self.client_socket.sendall(b'\00')
+
+            map_data = gzip.decompress(data)
+            print(f"map_data {map_data}")
+            # Step 2: Write the output to a file
+            with open('downloaded_map.json', 'w') as f:
+                f.write(f"map_data {map_data}")
+            return GameMapEncoderDecoder.from_dict(json.loads(map_data.decode())['map'])
+
 
 def create_connection(host='127.0.0.1', port=43210, username='Player1'):
     """Create a socket connection to the game server."""
@@ -17,21 +58,25 @@ def create_connection(host='127.0.0.1', port=43210, username='Player1'):
         'player_id': username,
         'position': Position2D(0,0)
     }
-    client_socket.sendall(json.dumps(initial_state).encode('utf-8'))  # Send the username to the server
-
-    # Start a thread to receive messages from the server
-    threading.Thread(target=receive_messages, args=(client_socket,), daemon=True).start()
+    client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
     
-    return client_socket
+    return username, client_socket
 
-def send_update(connection, username, character):
-    """Create a socket connection to the game server."""
+
+def send_update(connection, character, action):
     initial_state = {
-        'player_id': username,
+        'player_id': connection.username,
         'position': character.position,
-        'action': 'move'
+        'action': action
     }
-    return connection.sendall(json.dumps(initial_state).encode('utf-8'))  # Send the username to the server
+    print(initial_state)
+    return connection.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
+
+def send_tile_update(connection, character):
+    send_update(connection, character, "farm")
+
+def send_position_update(connection, character):
+    send_update(connection, character, "move")
 
 def receive_messages(client_socket):
     """Thread to receive messages from the server and update player positions."""
