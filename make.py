@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import sys
 import os
+import logging
 
 def package(script_name):
     """Package the specified Python script using PyInstaller."""

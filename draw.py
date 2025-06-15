@@ -94,7 +94,7 @@ def draw_top_left(screen, character):
             current_row = 1
 
         # Calculate the position to draw the entry
-        x = screen.round_to_even(3 + current_column * (panel_width / 3))  # Add some space between columns
+        x = screen.round_to_even(3 + current_column * (panel_width / 2))  # Add some space between columns
         y = current_row
 
         # Draw the entry in the specified position

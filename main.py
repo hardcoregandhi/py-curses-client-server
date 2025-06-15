@@ -1,4 +1,5 @@
 import curses
+import argparse
 from server import add_upnp_port_mapping
 import map
 from character import Character
@@ -25,7 +26,6 @@ def log_exception(exc_type, exc_value, exc_traceback):
 
 # Set the exception hook to log uncaught exceptions
 sys.excepthook = log_exception
-
 
 def try_move_player(connection, character, x, y):
     if character.moveTo(x, y, connection.map):
@@ -58,17 +58,16 @@ def handle_input(key, input_buffer, output, character, connection):
         try_move_player(connection, character, character.position.x - 1, character.position.y)
     elif key == curses.KEY_RIGHT:  # Move right
         try_move_player(connection, character, character.position.x + 1, character.position.y)
-    elif 32 <= key <= 126:  # Handle logging.infoable characters
+    elif 32 <= key <= 126:  # Handle printable characters
         input_buffer += chr(key)  # Add character to input buffer
 
     return input_buffer, output
 
-def init_game():
-    # game_map = map.GameMap(50, 10, map.default_map_string)  # Example map size
-    character = Character("Player")  # Start in the middle of the map
+def init_game(username):
+    character = Character(username)  # Start in the middle of the map
     return character
 
-def main(stdscr):
+def main(stdscr, host, username):
     # Hide the cursor
     curses.curs_set(0)
     curses.cbreak()
@@ -80,10 +79,10 @@ def main(stdscr):
     output = input_buffer = ""  # Initialize the input buffer
     stdscr.nodelay(True)  # Make getch non-blocking
 
-    character = init_game()
+    character = init_game(username)
 
-    # Create connection to the server
-    connection = Connection()
+    # Create connection to the server with host and username
+    connection = Connection(host, username=username)
     connection.send_position_update(character)
 
     while True:
@@ -92,8 +91,14 @@ def main(stdscr):
         key = stdscr.getch()  # Get user input
 
         input_buffer, output = handle_input(key, input_buffer, output, character, connection)
-    # Close the socket when done (this part may not be reached in a typical game loop)
-    client_socket.close()
 
-# Initialize the curses application
-curses.wrapper(main)
+if __name__ == "__main__":
+    # Initialize the argument parser
+    parser = argparse.ArgumentParser(description="Game Client")
+    parser.add_argument("-host", type=str, help="Host IP address of the server", default="127.0.0.1")
+    parser.add_argument("-username", type=str, help="Username for the game", default="Player1")
+    args = parser.parse_args()
+
+    # Initialize the curses application
+    curses.wrapper(lambda stdscr: main(stdscr, args.host, args.username))
+

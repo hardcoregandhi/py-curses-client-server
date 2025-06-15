@@ -37,8 +37,11 @@ class MessageHistory:
         return "\n".join(self.messages)
 
 class Connection:
-    def __init__(self):
-        self.username, self.client_socket = self.create_connection()
+    def __init__(self, host='127.0.0.1', port=43210, username='Player1'):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.client_socket = self.create_connection(host, port, username)
         self.map = self.download_map()
         self.message_history = MessageHistory()
         # Start a thread to receive messages from the server
@@ -84,7 +87,7 @@ class Connection:
         }
         client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
         
-        return username, client_socket
+        return client_socket
 
 
     def send_update(self, character, action):
