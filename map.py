@@ -13,14 +13,18 @@ import random
 import threading
 import uuid
 import json
+from position import Position2D
 
 class Tile:
-    def __init__(self, tile_type, additional_data=None):
+    def __init__(self, event_manager, tile_type, position, additional_data=None):
+        self.event_manager = event_manager
         self.tile_type = tile_type
+        self.position = position 
         self.work_time = 5  # Time before the tile can be activated
         self.cooldown_time = 5      # Time before the tile can be activated again
         self.is_ready_to_work = True        # Indicates if the tile can be worked
         self.is_finished_work = False        # Indicates if the tile has finished work
+        self.is_cooling_down = False
         self.additional_data = additional_data or {}
         self.id = str(uuid.uuid4())  # Generate a unique ID
 
@@ -33,16 +37,18 @@ class Tile:
         self.is_ready_to_work = False
         self.is_finished_work = True
         # Notify players that the tile can be activated
-        self.notify_players()
+        self.event_manager.publish('tile_worked', self.position)
 
     def work(self):
         """Player works the tile, starting the work timer."""
+        print(self.position)
         if self.is_ready_to_work:
             print(f"Player works tile {self.id}.")
             self.is_ready_to_work = False
             self.is_finished_work = False
             # Start the activation timer
             threading.Timer(self.work_time, self.work_complete).start()
+            self.event_manager.publish('tile_working', self.position)
         else:
             print(f"Tile {self.id} is not ready to work.")
 
@@ -51,8 +57,11 @@ class Tile:
         if self.is_finished_work:
             print(f"Player activates tile {self.id}.")
             self.is_finished_work = False
+            self.is_cooling_down = True
             # Start the cooldown timer
             threading.Timer(self.cooldown_time, self.cooldown_complete).start()
+            self.event_manager.publish('tile_activated', self.position)
+
         else:
             print(f"Tile {self.id} is not finished working.")
 
@@ -60,8 +69,9 @@ class Tile:
         """Called when the cooldown timer completes."""
         print(f"Tile {self.id} is ready to be worked again.")
         self.is_ready_to_work = True
+        self.is_cooling_down = False
         # Notify players that the tile can be worked again
-        self.notify_players()
+        self.event_manager.publish('tile_ready', self.position)
 
     def notify_players(self):
         """Notify players about the tile's status."""
@@ -71,8 +81,9 @@ class Tile:
     def to_dict(self):
         return {
             'tile_type' : self.tile_type,
-            'work_time' : self.work_time,
+            'position' : self.position,
             'cooldown_time' : self.cooldown_time,
+            'work_time' : self.work_time,
             'is_ready_to_work' : self.is_ready_to_work,
             'is_finished_work' : self.is_finished_work,
             'additional_data' : self.additional_data,
@@ -81,14 +92,15 @@ class Tile:
 
 
 class GameMap:
-    def __init__(self, width, height, map_string):
+    def __init__(self, event_manager, width, height, map_string):
+        self.event_manager = event_manager
         self.width = width
         self.height = height
         self.map = []
         self.additional_data = {}
-        self.create_map(map_string)
+        self.create_map(event_manager, map_string)
 
-    def create_map(self, map_string):
+    def create_map(self, event_manager, map_string):
         tile_mapping = {
             'x': 'plain',
             'o': 'dungeon',
@@ -114,7 +126,7 @@ class GameMap:
                 char = map_string[index]
                 tile_type = tile_mapping.get(char, 'unknown')  # Default to 'unknown' if not found
                 if tile_type != 'unknown':
-                    map_row.append(Tile(tile_type))
+                    map_row.append(Tile(event_manager, tile_type, Position2D(x,y)))
                 else:
                     raise Exception()
             self.map.append(map_row)
@@ -247,7 +259,7 @@ class GameMapEncoderDecoder(json.JSONEncoder):
         width = data['width']
         height = data['height']
         map_string = ''.join([''.join([tile['tile_type'][0] for tile in row]) for row in data['map']])
-        game_map = GameMap(width, height, map_string)
+        game_map = GameMap(None, width, height, map_string)
         game_map.additional_data = data.get('additional_data', {})
         return game_map
 

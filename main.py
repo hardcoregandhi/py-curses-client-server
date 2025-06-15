@@ -1,14 +1,15 @@
 import curses
 from server import add_upnp_port_mapping
 import map
-from character import Character, Position2D
+from character import Character
+from position import Position2D
 from draw import draw, ScreenMeasurements
-from client import send_update, send_position_update, send_tile_update, positions_lock, player_positions, Connection
+from client import positions_lock, player_positions, Connection
 
 
 def try_move_player(connection, character, x, y, game_map):
     if character.moveTo(x, y, game_map):
-        send_position_update(connection, character)
+        connection.send_position_update(character)
 
 def handle_input(key, input_buffer, output, character, game_map, connection):
     """Handle user input and update the input buffer and character position."""
@@ -20,10 +21,10 @@ def handle_input(key, input_buffer, output, character, game_map, connection):
             output = "Quitting..."  # Placeholder for future functionality
         elif input_buffer.strip() in ["w", "work"]:
             output = "Working tile..."
-            send_update(connection, character, "work")
+            connection.send_update(character, "work")
         elif input_buffer.strip() in ["a", "activate"]:
             output = "Activating tile..."
-            send_update(connection, character, "activate")
+            connection.send_update(character, "activate")
         elif input_buffer.strip() == "run":
             output = "Running command..."  # Placeholder for future functionality
         else:
@@ -43,9 +44,9 @@ def handle_input(key, input_buffer, output, character, game_map, connection):
     return input_buffer, output
 
 def init_game():
-    game_map = map.GameMap(50, 10, map.default_map_string)  # Example map size
+    # game_map = map.GameMap(50, 10, map.default_map_string)  # Example map size
     character = Character("Player")  # Start in the middle of the map
-    return game_map, character
+    return character
 
 def main(stdscr):
     # Hide the cursor
@@ -59,12 +60,12 @@ def main(stdscr):
     output = input_buffer = ""  # Initialize the input buffer
     stdscr.nodelay(True)  # Make getch non-blocking
 
-    game_map, character = init_game()
+    character = init_game()
 
     # Create connection to the server
     connection = Connection()
     game_map = connection.map
-    send_position_update(connection, character)
+    connection.send_position_update(character)
 
     while True:
         with positions_lock:

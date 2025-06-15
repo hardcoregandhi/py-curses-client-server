@@ -1,12 +1,13 @@
 import map
-from character import Position2D
+from position import Position2D
 import miniupnpc 
 import gzip
 
 class GameWorld:
-    def __init__(self):
+    def __init__(self, event_manager):
         self.players = []
-        self.game_map = map.GameMap(50, 10, map.default_map_string)  # Example map size
+        self.event_manager = event_manager
+        self.game_map = map.GameMap(event_manager, 50, 10, map.default_map_string)  # Example map size
 
 
 def add_upnp_port_mapping():
@@ -31,6 +32,8 @@ from collections import namedtuple
 from map import GameMapEncoderDecoder
 import struct
 from struct import pack
+from event_manager import EventManager
+
 position_packet = {
     'player_id': "",
     'position': ""
@@ -40,8 +43,10 @@ class GameServer:
     def __init__(self, host='0.0.0.0', port=43210):
         self.host = host
         self.port = port
-        self.world = GameWorld()
+        self.event_manager = EventManager()
+        self.world = GameWorld(self.event_manager)
         self.players = {}  # Dictionary to hold player data
+        self.register_subscriptions()
 
     def start(self):
         """Start the server and listen for incoming connections."""
@@ -178,6 +183,11 @@ class GameServer:
         # Notify all players of the new position (optional)
         self.notify_players(player_id, new_position)
 
+    def broadcast(self, data_packet):
+        for pid, player in self.players.items():
+            print(f"Broadcasting {data_packet}")
+            player['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
+
     def notify_players(self, player_id, new_position):
         """Notify all players of the updated position."""
         message = {
@@ -187,6 +197,44 @@ class GameServer:
         for pid, player in self.players.items():
             if pid != player_id:  # Don't send to the player who moved
                 player['socket'].sendall(json.dumps(message).encode('utf-8'))
+
+    def register_subscriptions(self):
+        self.event_manager.subscribe('tile_working', self.notify_tile_working)
+        self.event_manager.subscribe('tile_worked', self.notify_tile_worked)
+        self.event_manager.subscribe('tile_activated', self.notify_tile_activated)
+        self.event_manager.subscribe('tile_ready', self.notify_tile_ready)
+
+    def notify_tile_working(self, tile_position):
+        data_packet = {
+            'origin': 'tile',
+            'action': 'working',
+            'tile_pos': tile_position
+        }
+        self.broadcast(data_packet)
+
+    def notify_tile_worked(self, tile_position):
+        data_packet = {
+            'origin': 'tile',
+            'action': 'worked',
+            'tile_pos': tile_position
+        }
+        self.broadcast(data_packet)
+
+    def notify_tile_activated(self, tile_position):
+        data_packet = {
+            'origin': 'tile',
+            'action': 'activated',
+            'tile_pos': tile_position
+        }
+        self.broadcast(data_packet)
+
+    def notify_tile_ready(self, tile_position):
+        data_packet = {
+            'origin': 'tile',
+            'action': 'ready',
+            'tile_pos': tile_position
+        }
+        self.broadcast(data_packet)
 
 if __name__ == "__main__":
     server = GameServer()

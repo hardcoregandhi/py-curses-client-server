@@ -33,6 +33,8 @@ def create_health_bar(current_health, max_health, bar_length=30):
 
 def draw_map(window, screen, game_map, character, player_positions):
     screen.top_panel2.clear()
+    screen.top_panel2.box()
+    screen.top_panel2.addstr(0, 1, "Map", curses.A_BOLD)
     # Calculate the starting position to draw the map
     window_height, window_width = window.getmaxyx()
     start_x = max(1, character.position.x - window_width // 2) -2
@@ -47,6 +49,10 @@ def draw_map(window, screen, game_map, character, player_positions):
             if tile:
                 # Get the first character of the tile type for display
                 tile_char = tile.tile_type[0]  # Get the first character of the tile type
+                if tile.is_finished_work:
+                    tile_char = tile_char.upper()
+                elif tile.is_cooling_down:
+                    tile_char = '_'
                 window.addch(y, x, tile_char)
 
             # Check if the current position matches the character's position
@@ -57,7 +63,6 @@ def draw_map(window, screen, game_map, character, player_positions):
                 if (map_x, map_y) == (position[0], position[1]):
                     window.addch(y, x, '%')  # Draw the character at its position
 
-    screen.top_panel2.box()
     screen.top_panel2.refresh()
 
 def draw(screen, output, input_buffer, game_map, character, player_positions):
@@ -113,14 +118,13 @@ def draw_bottom(screen, output, input_buffer):
     # Create the bottom panel (window)
     print(input_buffer)
     screen.bottom_panel.clear()
+    screen.bottom_panel.box()
     screen.bottom_panel.addstr(0, 1, "Bottom Panel", curses.A_BOLD)
-    screen.bottom_panel.addstr(1, 1, "This is the bottom panel spanning the full width.")
     # Display the output in the bottom panel
     screen.bottom_panel.addstr(3, 1, output)  # Adjust the row as needed
 
     # Display the input buffer
     screen.bottom_panel.addstr(5, 1, "Input: " + input_buffer)  # Adjust the row as needed
-    screen.bottom_panel.box()
     screen.bottom_panel.refresh()
 
     # Wait for user input to exit
