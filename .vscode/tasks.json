@@ -13,7 +13,8 @@
             "presentation": {
                 "reveal": "always",
                 "focus": true,
-                "panel": "new"
+                "panel": "shared",
+                "group": "groupA"
             }
         },
         {
@@ -28,7 +29,8 @@
             "presentation": {
                 "reveal": "always",
                 "focus": true,
-                "panel": "new"
+                "panel": "shared",
+                "group": "groupA"
             }
         },
         {
@@ -41,7 +43,7 @@
             "presentation": {
                 "reveal": "always",
                 "focus": true,
-                "panel": "new"
+                "panel": "shared"
             }
         }
     ]
