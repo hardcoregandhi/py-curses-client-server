@@ -1,5 +1,5 @@
 import curses
-
+import logging
 class ScreenMeasurements:
     def __init__(self, stdscr):
         # Get the height and width of the window and round to even
@@ -59,21 +59,22 @@ def draw_map(window, screen, game_map, character, player_positions):
             if (map_x, map_y) == (character.position.x, character.position.y):
                 window.addch(y, x, '@')  # Draw the character at its position
             for player_id, position in player_positions.items():
-                print(f"{player_id}: {position}\n")
+                logging.info(f"{player_id}: {position}\n")
                 if (map_x, map_y) == (position[0], position[1]):
                     window.addch(y, x, '%')  # Draw the character at its position
 
     screen.top_panel2.refresh()
 
-def draw(screen, output, input_buffer, game_map, character, player_positions):
+def draw(screen, output, input_buffer, connection, character, player_positions):
     # Clear the screen
     draw_top_left(screen, character)
     # draw_top_right(screen)
-    draw_map(screen.top_panel2, screen, game_map, character, player_positions)
-    draw_bottom(screen, output, input_buffer)
+    draw_map(screen.top_panel2, screen, connection.map, character, player_positions)
+    draw_bottom(screen, output, input_buffer, connection)
 
 def draw_top_left(screen, character):
     # Create the first top panel (window)
+    screen.top_panel1.clear()
     screen.top_panel1.box()
     screen.top_panel1.addstr(0, 1, "Character Sheet", curses.A_BOLD)
     (panel_height, panel_width) = screen.top_panel1.getmaxyx()
@@ -114,19 +115,30 @@ def draw_top_right(screen):
     screen.top_panel2.box()
     screen.top_panel2.refresh()
 
-def draw_bottom(screen, output, input_buffer):
+def draw_bottom(screen, output, input_buffer, connection):
+
+    (panel_height, panel_width) = screen.bottom_panel.getmaxyx()
+
     # Create the bottom panel (window)
-    print(input_buffer)
     screen.bottom_panel.clear()
     screen.bottom_panel.box()
     screen.bottom_panel.addstr(0, 1, "Bottom Panel", curses.A_BOLD)
     # Display the output in the bottom panel
-    screen.bottom_panel.addstr(3, 1, output)  # Adjust the row as needed
+    screen.bottom_panel.addstr(1, 1, output)  # Adjust the row as needed
 
     # Display the input buffer
-    screen.bottom_panel.addstr(5, 1, "Input: " + input_buffer)  # Adjust the row as needed
-    screen.bottom_panel.refresh()
+    screen.bottom_panel.addstr(2, 1, "Input: " + input_buffer)  # Adjust the row as needed
 
+    message_history_height = panel_height - 6
+    last_messages = connection.message_history.get_last_messages(message_history_height)
+    screen.bottom_panel.addstr(4, 1, "Last messages:")
+    current_row = 5
+    for msg in last_messages:
+        # import pdb; pdb.set_trace()
+        screen.bottom_panel.addstr(current_row, 1, msg)
+        current_row += 1
+
+    screen.bottom_panel.refresh()
     # Wait for user input to exit
     # stdscr.getch()
     # pdb.set_trace()

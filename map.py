@@ -14,6 +14,7 @@ import threading
 import uuid
 import json
 from position import Position2D
+import logging
 
 class Tile:
     def __init__(self, event_manager, tile_type, position, additional_data=None):
@@ -29,63 +30,70 @@ class Tile:
         self.id = str(uuid.uuid4())  # Generate a unique ID
 
     def __repr__(self):
-        return f"Tile(type={self.tile_type}, data={self.additional_data})"
+        return (f"Tile(tile_type={self.tile_type!r}, position={self.position!r}, "
+                f"work_time={self.work_time!r}, cooldown_time={self.cooldown_time!r}, "
+                f"is_ready_to_work={self.is_ready_to_work!r}, "
+                f"is_finished_work={self.is_finished_work!r}, "
+                f"is_cooling_down={self.is_cooling_down!r}, "
+                f"additional_data={self.additional_data!r}, id={self.id!r})")
 
     def work_complete(self):
         """Called when the activation timer completes."""
-        print(f"Tile {self.id} is ready to activate.")
+        logging.info(f"Tile {self.id} is ready to activate.")
         self.is_ready_to_work = False
         self.is_finished_work = True
         # Notify players that the tile can be activated
-        self.event_manager.publish('tile_worked', self.position)
+        self.event_manager.publish('tile_worked', self.position, True)
 
     def work(self):
         """Player works the tile, starting the work timer."""
-        print(self.position)
+        logging.info(self.position)
         if self.is_ready_to_work:
-            print(f"Player works tile {self.id}.")
+            logging.info(f"Player works tile {self.id}.")
             self.is_ready_to_work = False
             self.is_finished_work = False
             # Start the activation timer
             threading.Timer(self.work_time, self.work_complete).start()
-            self.event_manager.publish('tile_working', self.position)
+            self.event_manager.publish('tile_working', self.position, True)
         else:
-            print(f"Tile {self.id} is not ready to work.")
+            logging.info(f"Tile {self.id} is not ready to work.")
+            self.event_manager.publish('tile_working', self.position, False)
 
     def cooldown(self):
         """Player activates the tile, starting the cooldown timer."""
         if self.is_finished_work:
-            print(f"Player activates tile {self.id}.")
+            logging.info(f"Player activates tile {self.id}.")
             self.is_finished_work = False
             self.is_cooling_down = True
             # Start the cooldown timer
             threading.Timer(self.cooldown_time, self.cooldown_complete).start()
-            self.event_manager.publish('tile_activated', self.position)
-
+            self.event_manager.publish('tile_activated', self.position, True)
         else:
-            print(f"Tile {self.id} is not finished working.")
+            logging.info(f"Tile {self.id} is not finished working.")
+            self.event_manager.publish('tile_activated', self.position, False)
 
     def cooldown_complete(self):
         """Called when the cooldown timer completes."""
-        print(f"Tile {self.id} is ready to be worked again.")
+        logging.info(f"Tile {self.id} is ready to be worked again.")
         self.is_ready_to_work = True
         self.is_cooling_down = False
         # Notify players that the tile can be worked again
-        self.event_manager.publish('tile_ready', self.position)
+        self.event_manager.publish('tile_ready', self.position, True)
 
     def notify_players(self):
         """Notify players about the tile's status."""
         # Implement your notification logic here
-        print(f"Notify players: Tile {self.id} status updated.")
+        logging.info(f"Notify players: Tile {self.id} status updated.")
 
     def to_dict(self):
         return {
             'tile_type' : self.tile_type,
             'position' : self.position,
-            'cooldown_time' : self.cooldown_time,
             'work_time' : self.work_time,
+            'cooldown_time' : self.cooldown_time,
             'is_ready_to_work' : self.is_ready_to_work,
             'is_finished_work' : self.is_finished_work,
+            'is_cooling_down'  : self.is_cooling_down,
             'additional_data' : self.additional_data,
             'id' : self.id,
         }
@@ -134,7 +142,7 @@ class GameMap:
     def display_map(self):
         for row in self.map:
             line = ''.join(tile.tile_type[0] for tile in row)  # Display first letter of tile type
-            print(line)
+            logging.info(line)
 
     def set_additional_data(self, x, y, data):
         self.additional_data[(y, x)] = data
@@ -143,9 +151,6 @@ class GameMap:
     def get_cell_data(self, x, y):
         return self.additional_data.get((y, x), None)
     
-    def get_tile(self, position):
-        return self.get_tile(position.x, position.y)
-
     def get_tile(self, x, y):
         """Retrieve the tile at the specified coordinates."""
         if 0 <= x < self.width and 0 <= y < self.height:
@@ -244,9 +249,10 @@ class MapGenerator:
             formatted_map_string += map_string[i * self.width:(i + 1) * self.width] + '\n'
         formatted_map_string += '"""'
         
-        print(formatted_map_string)  # Print the formatted string for copy-pasting
+        logging.info(formatted_map_string)  # Print the formatted string for copy-pasting
         return map_string
 
+from event_manager import EventManager
 
 class GameMapEncoderDecoder(json.JSONEncoder):
     def default(self, obj):
@@ -259,8 +265,27 @@ class GameMapEncoderDecoder(json.JSONEncoder):
         width = data['width']
         height = data['height']
         map_string = ''.join([''.join([tile['tile_type'][0] for tile in row]) for row in data['map']])
-        game_map = GameMap(None, width, height, map_string)
-        game_map.additional_data = data.get('additional_data', {})
+        game_map = GameMap(EventManager(), width, height, map_string)
+        map = data['map']
+        for tiles in map:
+            for tile in tiles:
+                new_tile = Tile(
+                    game_map.event_manager,
+                    tile_type=tile['tile_type'],
+                    position=Position2D(tile['position'][0], tile['position'][1])
+                )
+                # import pdb; pdb.set_trace()
+                new_tile.work_time = tile['work_time']
+                new_tile.cooldown_time = tile['cooldown_time']
+                new_tile.is_ready_to_work = tile['is_ready_to_work']
+                new_tile.is_finished_work = tile['is_finished_work']
+                new_tile.is_cooling_down = tile['is_cooling_down']
+                new_tile.additional_data = tile['additional_data']
+                new_tile.id = 0
+                
+                x, y = tile['position']
+                open('output.txt', 'a').write(f"x {x} y {y} tile['is_finished_work'] {tile['is_finished_work']}")
+                game_map.map[y][x] = new_tile  # Place the tile in the correct position
         return game_map
 
 # Example usage

@@ -1,10 +1,12 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import time
-from map import GameMap, Tile, default_map_string  # Replace 'your_module' with the actual module name where Tile is defined
+from client import Connection
+from map import GameMap, Tile, default_map_string, GameMapEncoderDecoder
 import json
 from event_manager import EventManager
 from position import Position2D
+import itertools 
 
 class TestTile(unittest.TestCase):
 
@@ -69,6 +71,48 @@ class TestMap(unittest.TestCase):
         evman = EventManager
         game_map = GameMap(evman, 50, 10, default_map_string)  # Example map size
         self.assertTrue(json.dumps(game_map.to_dict()).encode('utf-8'))
+
+    def assertEqual(self, first, second, msg=None):
+        try:
+            super().assertEqual(first, second, msg)
+        except AssertionError:
+            # import pdb; pdb.set_trace()
+            raise  # Re-raise the exception after debugging
+    def test_map_json(self):
+        evman = EventManager
+        game_map = GameMap(evman, 50, 10, default_map_string)
+        data_packet = {
+                'request': 'map',
+                'map': game_map
+            }
+        data = json.dumps(data_packet, cls=GameMapEncoderDecoder).encode('utf-8')
+        new_map = GameMapEncoderDecoder.from_dict(json.loads(data.decode())['map'])
+
+        with open('downloaded_map1.json', 'w') as f:
+                f.write(f"map_data {data}")
+
+        with open('downloaded_map2.json', 'w') as f:
+                f.write(f"map_data {json.loads(data.decode())}")
+
+
+        # import pdb; pdb.set_trace()
+        for (tiles1, tiles2) in zip(game_map.map, new_map.map):
+            for (tile1, tile2) in zip(tiles1, tiles2):
+                tile1.id = 0
+                tile2.id = 0
+                self.assertEqual(str(tile1), str(tile2))
+
+    def assertTrue(self, first, msg=None):
+        try:
+            super().assertTrue(first, msg)
+        except AssertionError:
+            # import pdb; pdb.set_trace()
+            raise  # Re-raise the exception after debugging
+    # def test_map_download(self):
+    #     connection = Connection()
+    #     self.assertTrue(connection.map.get_tile(3,5).is_finished_work)
+
+         
 
 if __name__ == '__main__':
     unittest.main()

@@ -12,7 +12,7 @@ def package(script_name):
     os.makedirs(spec_dir, exist_ok=True)
 
     try:
-        print(f"Packaging {script_name}...")
+        logging.info(f"Packaging {script_name}...")
         subprocess.run([
             'pyinstaller', 
             script_name, 
@@ -21,9 +21,9 @@ def package(script_name):
             '--workpath', build_dir, 
             '--specpath', spec_dir
         ], check=True)
-        print(f"Packaging completed successfully for {script_name}.")
+        logging.info(f"Packaging completed successfully for {script_name}.")
     except subprocess.CalledProcessError as e:
-        print(f"Error during packaging {script_name}: {e}")
+        logging.info(f"Error during packaging {script_name}: {e}")
         sys.exit(1)
 
 def run():
@@ -31,9 +31,9 @@ def run():
     try:
         subprocess.run(['python', 'server.py'], check=True)
         subprocess.run(['python', 'main.py'], check=True)
-        print("Scripts executed successfully.")
+        logging.info("Scripts executed successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Error during execution: {e}")
+        logging.info(f"Error during execution: {e}")
         sys.exit(1)
 
 def main():

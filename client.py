@@ -2,12 +2,15 @@
 import json
 import socket
 import threading
-
+import traceback
 from position import Position2D
 from map import GameMapEncoderDecoder
 import gzip 
 from struct import unpack
 import os 
+import logging
+from event_manager import EventManager
+
 # Global variable to hold player positions
 player_positions = {}
 positions_lock = threading.Lock()  # Lock for thread-safe access to player_positions
@@ -15,13 +18,31 @@ positions_lock = threading.Lock()  # Lock for thread-safe access to player_posit
 map = {}
 map_lock = threading.Lock()  # Lock for thread-safe access to player_positions
 
+class MessageHistory:
+    def __init__(self):
+        self.messages = []
+
+    def add_message(self, message: str):
+        """Add a new message to the history."""
+        self.messages.append(message)
+
+    def get_last_messages(self, count: int) -> list:
+        """Retrieve the last X messages from the history."""
+        if count <= 0:
+            return []
+        return self.messages[-count:]
+
+    def __str__(self):
+        """Return a string representation of the message history."""
+        return "\n".join(self.messages)
+
 class Connection:
     def __init__(self):
         self.username, self.client_socket = self.create_connection()
         self.map = self.download_map()
-
+        self.message_history = MessageHistory()
         # Start a thread to receive messages from the server
-        threading.Thread(target=self.receive_messages, args=(self.client_socket,), daemon=True).start()
+        threading.Thread(target=self.receive_messages, args=(), daemon=True).start()
 
     def download_map(self):
         data_packet = {
@@ -30,9 +51,9 @@ class Connection:
         self.client_socket.sendall(json.dumps(data_packet).encode('utf-8'))
         while True:
             bs = self.client_socket.recv(8)
-            print(f"Raw bytes received for length: {bs}")
+            logging.info(f"Raw bytes received for length: {bs}")
             (length,) = unpack('>Q', bs)  # Unpack the length
-            print(f"Unpacked length: {length}")  # Print the unpacked length
+            logging.info(f"Unpacked length: {length}")  # Print the unpacked length
             data = b''
             while len(data) < length:
                 # doing it in batches is generally better than trying
@@ -46,7 +67,7 @@ class Connection:
             self.client_socket.sendall(b'\00')
 
             map_data = gzip.decompress(data)
-            # print(f"map_data {map_data}")
+            # logging.info(f"map_data {map_data}")
             # Step 2: Write the output to a file
             with open('downloaded_map.json', 'w') as f:
                 f.write(f"map_data {map_data}")
@@ -72,7 +93,7 @@ class Connection:
             'position': character.position,
             'action': action
         }
-        print(initial_state)
+        logging.info(initial_state)
         return self.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
 
     def send_tile_update(self, character):
@@ -84,18 +105,21 @@ class Connection:
     def receive_messages(self):
         """Thread to receive messages from the server and update player positions."""
         global player_positions
+        logging.info("starting receive messages thread")
         while True:
             try:
                 data = self.client_socket.recv(1024).decode('utf-8')
                 if not data:
                     break  # Connection closed
+                logging.info(data)
                 # Process the received data
                 messages = data.splitlines()  # Assuming each message is on a new line
                 for message in messages:
                     if message:
                         try:
                             command = json.loads(message)
-                            print(command)
+                            logging.info(command)
+                            self.message_history.add_message(str(command))
                             if command.get('new_position'):
                                 player_id = command['player_id']
                                 position = command['new_position']
@@ -103,20 +127,24 @@ class Connection:
                                 with positions_lock:
                                     player_positions[player_id] = position
                             elif command.get('origin') and command.get('origin') == "tile":
-                                print("tile action received")
+                                logging.info("tile action received")
                                 action = command['action']
-                                tile_pos = Position2D(command['tile_pos'])
+                                pos_array = command['tile_pos']
+                                is_success = command['is_success']
+                                if not is_success:
+                                    continue
+                                tile_pos = Position2D(pos_array[0], pos_array[1])
                                 with map_lock:
                                     if action == "working":
-                                        self.map.get_tile(tile_pos).work()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).work()
                                     if action == "worked":
-                                        self.map.get_tile(tile_pos).work_complete()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).work_complete()
                                     if action == "activated":
-                                        self.map.get_tile(tile_pos).cooldown()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown()
                                     if action == "ready":
-                                        self.map.get_tile(tile_pos).cooldown_complete()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown_complete()
                         except json.JSONDecodeError:
-                            print("Received invalid JSON:", message)
+                            logging.error("Received invalid JSON:", message)
             except Exception as e:
-                print(f"Error receiving data: {e}")
-                break
+                logging.error(f"Error receiving data: {e}")
+                logging.error(repr(traceback.print_exc(e)))

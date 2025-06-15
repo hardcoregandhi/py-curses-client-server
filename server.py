@@ -2,6 +2,17 @@ import map
 from position import Position2D
 import miniupnpc 
 import gzip
+import logging
+import sys
+
+# Configure the logger
+logging.basicConfig(
+    filename='server.log',  # Specify the log file name
+    filemode='w',        # Append mode; use 'w' to overwrite the file
+    format='%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(message)s',
+    level=logging.DEBUG   # Set the logging level
+)
+
 
 class GameWorld:
     def __init__(self, event_manager):
@@ -53,16 +64,16 @@ class GameServer:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_socket.bind((self.host, self.port))
             server_socket.listen()
-            print(f"Server listening on {self.host}:{self.port}")
+            logging.info(f"Server listening on {self.host}:{self.port}")
 
             while True:
                 client_socket, addr = server_socket.accept()
-                print(f"Player connected from {addr}")
+                logging.info(f"Player connected from {addr}")
                 threading.Thread(target=self.handle_client, args=(client_socket,)).start()
 
     
     def send_data_in_chunks(self, sock, json_data, chunk_size=1024):
-        print(json_data)
+        logging.info(json_data)
         total_length = len(json_data)
         
         # Send the total length first
@@ -110,7 +121,7 @@ class GameServer:
                         
                         # Decode the JSON
                         # json_data = json.loads(json_str)
-                        # print("Received JSON:", json_data)  # Process the JSON data as needed
+                        # logging.info("Received JSON:", json_data)  # Process the JSON data as needed
                         command = json.loads(json_str)
                         self.process_command(player_id, command)
 
@@ -123,16 +134,16 @@ class GameServer:
         finally:
             client_socket.close()
             del self.players[player_id]  # Remove player from the list
-            print(f"Player {player_id} disconnected.")
+            logging.info(f"Player {player_id} disconnected.")
 
     def send_map(self, sock, map_data):
-        print("sending map")
+        logging.info("sending map")
         # use struct to make sure we have a consistent endianness on the length
-        print(f"Length of map_data: {len(map_data)}")
+        logging.info(f"Length of map_data: {len(map_data)}")
         length = pack('>Q', len(map_data))
 
         # sendall to make sure it blocks if there's back-pressure on the socket
-        print(f"Packed length (bytes): {length}")  # Should show 8 bytes
+        logging.info(f"Packed length (bytes): {length}")  # Should show 8 bytes
         sock.sendall(length)
         sock.sendall(map_data)
 
@@ -140,13 +151,16 @@ class GameServer:
 
     def process_command(self, player_id, command):
         """Process movement commands from the player."""
-        print(command)
+        logging.info(command)
         if command.get("request") and command['request'] == 'map':
             data_packet = {
                 'request': 'map',
                 'map': self.world.game_map
             }
             data = json.dumps(data_packet, cls=GameMapEncoderDecoder).encode('utf-8')
+
+            with open('server_map.json', 'w') as f:
+                f.write(f"map_data {data}")
 
             compressed_data = gzip.compress(data)
             # data = json.dumps(data_packet).encode('utf-8')
@@ -185,7 +199,7 @@ class GameServer:
 
     def broadcast(self, data_packet):
         for pid, player in self.players.items():
-            print(f"Broadcasting {data_packet}")
+            logging.info(f"Broadcasting {data_packet}")
             player['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
 
     def notify_players(self, player_id, new_position):
@@ -204,35 +218,40 @@ class GameServer:
         self.event_manager.subscribe('tile_activated', self.notify_tile_activated)
         self.event_manager.subscribe('tile_ready', self.notify_tile_ready)
 
-    def notify_tile_working(self, tile_position):
+    def notify_tile_working(self, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'working',
-            'tile_pos': tile_position
+            'tile_pos': tile_position,
+            'is_success': is_success
         }
         self.broadcast(data_packet)
 
-    def notify_tile_worked(self, tile_position):
+    def notify_tile_worked(self, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'worked',
-            'tile_pos': tile_position
+            'tile_pos': tile_position,
+            'is_success': is_success
+
         }
         self.broadcast(data_packet)
 
-    def notify_tile_activated(self, tile_position):
+    def notify_tile_activated(self, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'activated',
-            'tile_pos': tile_position
+            'tile_pos': tile_position,
+            'is_success': is_success
         }
         self.broadcast(data_packet)
 
-    def notify_tile_ready(self, tile_position):
+    def notify_tile_ready(self, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'ready',
-            'tile_pos': tile_position
+            'tile_pos': tile_position,
+            'is_success': is_success
         }
         self.broadcast(data_packet)
 

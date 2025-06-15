@@ -6,12 +6,32 @@ from position import Position2D
 from draw import draw, ScreenMeasurements
 from client import positions_lock, player_positions, Connection
 
+import logging
+import sys
 
-def try_move_player(connection, character, x, y, game_map):
-    if character.moveTo(x, y, game_map):
+# Configure the logger
+logging.basicConfig(
+    filename='client.log',  # Specify the log file name
+    filemode='w',        # Append mode; use 'w' to overwrite the file
+    format='%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(message)s',
+    level=logging.DEBUG   # Set the logging level
+)
+
+def log_exception(exc_type, exc_value, exc_traceback):
+    """Log uncaught exceptions."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.exit(1)
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+# Set the exception hook to log uncaught exceptions
+sys.excepthook = log_exception
+
+
+def try_move_player(connection, character, x, y):
+    if character.moveTo(x, y, connection.map):
         connection.send_position_update(character)
 
-def handle_input(key, input_buffer, output, character, game_map, connection):
+def handle_input(key, input_buffer, output, character, connection):
     """Handle user input and update the input buffer and character position."""
     if key in (curses.KEY_BACKSPACE, 8):  # Handle backspace
         input_buffer = input_buffer[:-1]  # Remove the last character
@@ -31,14 +51,14 @@ def handle_input(key, input_buffer, output, character, game_map, connection):
             output = f"Unknown command: {input_buffer.strip()}"
         input_buffer = ""  # Clear the input buffer after processing
     elif key == curses.KEY_UP:  # Move up
-        try_move_player(connection, character, character.position.x, character.position.y - 1, game_map)
+        try_move_player(connection, character, character.position.x, character.position.y - 1)
     elif key == curses.KEY_DOWN:  # Move down
-        try_move_player(connection, character, character.position.x, character.position.y + 1, game_map)
+        try_move_player(connection, character, character.position.x, character.position.y + 1)
     elif key == curses.KEY_LEFT:  # Move left
-        try_move_player(connection, character, character.position.x - 1, character.position.y, game_map)
+        try_move_player(connection, character, character.position.x - 1, character.position.y)
     elif key == curses.KEY_RIGHT:  # Move right
-        try_move_player(connection, character, character.position.x + 1, character.position.y, game_map)
-    elif 32 <= key <= 126:  # Handle printable characters
+        try_move_player(connection, character, character.position.x + 1, character.position.y)
+    elif 32 <= key <= 126:  # Handle logging.infoable characters
         input_buffer += chr(key)  # Add character to input buffer
 
     return input_buffer, output
@@ -64,15 +84,14 @@ def main(stdscr):
 
     # Create connection to the server
     connection = Connection()
-    game_map = connection.map
     connection.send_position_update(character)
 
     while True:
         with positions_lock:
-            draw(screen, output, input_buffer, game_map, character, player_positions)  # Call draw to update the display
+            draw(screen, output, input_buffer, connection, character, player_positions)  # Call draw to update the display
         key = stdscr.getch()  # Get user input
 
-        input_buffer, output = handle_input(key, input_buffer, output, character, game_map, connection)
+        input_buffer, output = handle_input(key, input_buffer, output, character, connection)
     # Close the socket when done (this part may not be reached in a typical game loop)
     client_socket.close()
 
