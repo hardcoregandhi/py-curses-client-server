@@ -138,12 +138,14 @@ class Connection:
                                     continue
                                 tile_pos = Position2D(pos_array[0], pos_array[1])
                                 with map_lock:
+                                    if command.get("player_id"):
+                                        player_id = command['player_id']
                                     if action == "working":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).work()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).work(player_id)
                                     if action == "worked":
                                         self.map.get_tile(tile_pos.x, tile_pos.y).work_complete()
                                     if action == "activated":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown()
+                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown(player_id)
                                     if action == "ready":
                                         self.map.get_tile(tile_pos.x, tile_pos.y).cooldown_complete()
                         except json.JSONDecodeError:

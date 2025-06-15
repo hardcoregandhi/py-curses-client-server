@@ -172,18 +172,20 @@ class GameServer:
             self.move_player(player_id, position)
         if command.get('action') and command['action'] == 'work':
             position = command['position']
-            self.work_tile(player_id, position)
+            player_name = command['player_id']
+            self.work_tile(player_name, position)
         if command.get('action') and command['action'] == 'activate':
             position = command['position']
-            self.activate_tile(player_id, position)
+            player_name = command['player_id']
+            self.activate_tile(player_name, position)
 
     def work_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
-        tile.work()
+        tile.work(player_id)
 
     def activate_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
-        tile.cooldown()
+        tile.cooldown(player_id)
 
     def move_player(self, player_id, position):
         """Move the player based on the direction provided."""
@@ -218,16 +220,18 @@ class GameServer:
         self.event_manager.subscribe('tile_activated', self.notify_tile_activated)
         self.event_manager.subscribe('tile_ready', self.notify_tile_ready)
 
-    def notify_tile_working(self, tile_position, is_success):
+    def notify_tile_working(self, player_id, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'working',
             'tile_pos': tile_position,
-            'is_success': is_success
+            'is_success': is_success,
+            'player_id': player_id
+
         }
         self.broadcast(data_packet)
 
-    def notify_tile_worked(self, tile_position, is_success):
+    def notify_tile_worked(self, player_id, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'worked',
@@ -237,16 +241,17 @@ class GameServer:
         }
         self.broadcast(data_packet)
 
-    def notify_tile_activated(self, tile_position, is_success):
+    def notify_tile_activated(self, player_id, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'activated',
             'tile_pos': tile_position,
-            'is_success': is_success
+            'is_success': is_success,
+            'player_id': player_id
         }
         self.broadcast(data_packet)
 
-    def notify_tile_ready(self, tile_position, is_success):
+    def notify_tile_ready(self, player_id, tile_position, is_success):
         data_packet = {
             'origin': 'tile',
             'action': 'ready',
