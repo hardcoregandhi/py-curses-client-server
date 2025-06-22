@@ -6,13 +6,7 @@ from character import Character
 from position import Position2D
 from draw import draw, ScreenMeasurements
 from client import positions_lock, player_positions, Connection
-from views import View, WorldView, LevelUpView
-
-# Initialize views
-views = {
-    View.WORLD: WorldView(),
-    View.LEVEL_UP: LevelUpView()
-}
+from views import View, Views
 
 class GameState:
     def __init__(self):
@@ -54,10 +48,13 @@ def handle_input(key, input_buffer, output, character, connection, game_state):
         if command in ["l", "level", "levelup"]:
             game_state.current_view = View.LEVEL_UP
             return "", "Switching View"
+        elif command in ["f", "fight"]:
+            game_state.current_view = View.BATTLE
+            return "", "Switching View"
         elif command in ["b", "back"]:
             game_state.current_view = View.WORLD
             return "", "Switching View"
-        output = views[game_state.current_view].handle_input(command, character, connection)
+        output = Views[game_state.current_view].handle_input(command, character, connection)
         input_buffer = ""  # Clear the input buffer after processing
     elif key == curses.KEY_UP:  # Move up
         try_move_player(connection, character, character.position.x, character.position.y - 1)
@@ -97,7 +94,7 @@ def main(stdscr, host, username):
 
     while True:
         with positions_lock:
-            views[game_state.current_view].draw(screen, output, input_buffer, connection, character, player_positions)
+            Views[game_state.current_view].draw(screen, output, input_buffer, connection, character, player_positions)
         key = stdscr.getch()  # Get user input
 
         input_buffer, output = handle_input(key, input_buffer, output, character, connection, game_state)

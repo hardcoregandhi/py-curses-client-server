@@ -285,7 +285,6 @@ class GameMapEncoderDecoder(json.JSONEncoder):
                 new_tile.id = 0
                 
                 x, y = tile['position']
-                open('output.txt', 'a').write(f"x {x} y {y} tile['is_finished_work'] {tile['is_finished_work']}")
                 game_map.map[y][x] = new_tile  # Place the tile in the correct position
         return game_map
 

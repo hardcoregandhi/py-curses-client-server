@@ -156,7 +156,3 @@ def draw_bottom(screen, output, input_buffer, connection):
         current_row += 1
 
     screen.bottom_panel.refresh()
-    # Wait for user input to exit
-    # stdscr.getch()
-    # pdb.set_trace()
-    # time.sleep(1)

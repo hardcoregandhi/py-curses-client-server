@@ -72,8 +72,6 @@ class Connection:
             map_data = gzip.decompress(data)
             # logging.info(f"map_data {map_data}")
             # Step 2: Write the output to a file
-            with open('downloaded_map.json', 'w') as f:
-                f.write(f"map_data {map_data}")
             return GameMapEncoderDecoder.from_dict(json.loads(map_data.decode())['map'])
 
 

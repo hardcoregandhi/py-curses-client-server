@@ -159,9 +159,6 @@ class GameServer:
             }
             data = json.dumps(data_packet, cls=GameMapEncoderDecoder).encode('utf-8')
 
-            with open('server_map.json', 'w') as f:
-                f.write(f"map_data {data}")
-
             compressed_data = gzip.compress(data)
             # data = json.dumps(data_packet).encode('utf-8')
 

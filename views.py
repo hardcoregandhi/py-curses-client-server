@@ -1,11 +1,12 @@
 from enum import Enum
 import curses
-from draw import draw, ScreenMeasurements
-
+from draw import draw, ScreenMeasurements, create_health_bar
+from character import Character
 
 class View(Enum):
     WORLD = "world"
     LEVEL_UP = "levelup"
+    BATTLE = "battle"
 
 class BaseView:
     def draw(self):
@@ -133,3 +134,93 @@ class LevelUpView(BaseView):
             current_row += 1
 
         screen.bottom_panel.refresh()
+
+class BattleView(BaseView):
+    def __init__(self):
+        self.battle_win = None
+
+    def draw(self, screen, output, input_buffer, connection, character, player_positions):
+        # self.draw_battle_interface(screen, output, input_buffer, player_character, enemy_character)
+        self.draw_battle_interface_in_map_area(screen.top_panel2, screen, output, input_buffer, character, character)
+
+    def handle_input(self, command, character, connection):
+        """Handle battle actions based on player input."""
+        valid_commands = ["slash", "stab", "parry"]
+        if command not in valid_commands:
+            return f"Invalid command: {command}. Please choose 'slash', 'stab', or 'parry'."
+
+        # Send the player's action to the server
+        connection.send_action(character.id, command)
+
+        # Wait for the server to respond with the outcome
+        outcome = connection.wait_for_battle_outcome(character.id)
+
+        return outcome
+    
+    def draw_character(self, window, y, x):
+        character_representation = \
+"""\
+         />_________________________________
+[########[]________________________________/
+         \>"""
+        
+        
+        for i, line in enumerate(character_representation.splitlines()):
+            window.addstr(y + i, x + 1, line)
+    
+    def draw_battle_interface_in_map_area(self, window, screen, output, input_buffer, player_character, enemy_character):
+        """Draw the battle interface in the area where the map is displayed."""
+        window.clear()
+        window.box()
+
+        (panel_height, panel_width) = screen.top_panel1.getmaxyx()
+
+        self.draw_character(window, 1, 1)
+        # Draw enemy character on the right
+        window.addstr(panel_height-8, 1, f"Enemy: {enemy_character.name} (HP: {enemy_character.stats.health})")
+        window.addstr(panel_height-7, 1, f"{'Health':<{11}}: " + create_health_bar(enemy_character.stats.health, enemy_character.stats.levels.max_health))
+        window.addstr(panel_height-5, 1, "Choose your action:")
+        window.addstr(panel_height-4, 1, "1. Slash")
+        window.addstr(panel_height-3, 1, "2. Stab")
+        window.addstr(panel_height-2, 1, "3. Parry")
+
+
+        window.refresh()
+
+
+
+    def draw_battle_interface(self, screen, output, input_buffer, player_character, enemy_character):
+        """Draw the battle interface showing both characters."""
+        if not self.battle_win:
+            height, width = screen.half_height, screen.width  # Adjust as needed
+            start_y = 0
+            start_x = 0
+            self.battle_win = curses.newwin(height, width, start_y, start_x)
+
+        self.battle_win.clear()
+        self.battle_win.box()
+
+        # Draw player character on the left
+        # self.battle_win.addstr(1, 1, f"{'Health':<{11}}: " + create_health_bar(player_character.stats.health, player_character.stats.levels.max_health))
+        # self.battle_win.addstr(1, 1, f"Player: {player_character.name} (HP: {player_character.health})")
+
+
+        # Draw enemy character on the right
+        self.battle_win.addstr(2, 1, f"{'Health':<{11}}: " + create_health_bar(enemy_character.stats.health, enemy_character.stats.levels.max_health))
+
+        self.battle_win.addstr(1, width - 30, f"Enemy: {enemy_character.name} (HP: {enemy_character.health})")
+
+        self.battle_win.addstr(3, 1, "Choose your action:")
+        self.battle_win.addstr(4, 1, "1. Slash")
+        self.battle_win.addstr(5, 1, "2. Stab")
+        self.battle_win.addstr(6, 1, "3. Parry")
+
+        self.battle_win.refresh()
+
+
+# Initialize views
+Views = {
+    View.WORLD: WorldView(),
+    View.LEVEL_UP: LevelUpView(),
+    View.BATTLE: BattleView()
+}
