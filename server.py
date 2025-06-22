@@ -18,7 +18,7 @@ class GameWorld:
     def __init__(self, event_manager):
         self.players = []
         self.event_manager = event_manager
-        self.game_map = map.GameMap(event_manager, 50, 10, map.default_map_string)  # Example map size
+        self.game_map = map.GameMap(event_manager, 50, 11, map.default_map_string)  # Example map size
 
 
 def add_upnp_port_mapping():

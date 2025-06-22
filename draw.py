@@ -72,6 +72,34 @@ def draw(screen, output, input_buffer, connection, character, player_positions):
     draw_map(screen.top_panel2, screen, connection.map, character, player_positions)
     draw_bottom(screen, output, input_buffer, connection)
 
+def draw_stats(stats, current_column, current_row, max_entries_per_column, panel_width, screen):
+    # Iterate through the attributes of the given stats object
+    for entry, value in stats.__dict__.items():
+        if entry == "levels":  # Skip the levels attribute
+            continue
+        entry = entry.replace('_', ' ')
+        entry = entry.capitalize()
+        text = f"{entry:<{10}} : {value}"[:panel_width]
+
+        # Check if we need to move to the next column
+        if current_row > max_entries_per_column:
+            current_column += 1
+            current_row = 1
+        if current_column == 3:  # Limit to 3 columns
+            break
+
+        # Calculate the position to draw the entry
+        x = screen.round_to_even(3 + current_column * (panel_width / 2))  # Add some space between columns
+        y = current_row
+
+        # Draw the entry in the specified position
+        screen.top_panel1.addstr(y, int(x), text)
+
+        # Move to the next row
+        current_row += 1
+
+    return current_column, current_row
+
 def draw_top_left(screen, character):
     # Create the first top panel (window)
     screen.top_panel1.clear()
@@ -83,28 +111,15 @@ def draw_top_left(screen, character):
     current_column = 0
     current_row = 1
 
-    # Iterate through the character's attributes
-    for i, (entry, value) in enumerate(character.__dict__.items()):
-        if "max_" in entry:
-            continue
-        text = f"{entry.capitalize():<{10}} : {value}"[:panel_width]
-        # Check if we need to move to the next column
-        if current_row >= max_entries_per_column:
-            current_column += 1
-            current_row = 1
+    # Draw non-levelable stats
+    current_column, current_row = draw_stats(character.stats, current_column, current_row, max_entries_per_column, panel_width, screen)
 
-        # Calculate the position to draw the entry
-        x = screen.round_to_even(3 + current_column * (panel_width / 2))  # Add some space between columns
-        y = current_row
+    # Draw levelable stats
+    current_column, current_row = draw_stats(character.stats.levels, current_column+1, 1, max_entries_per_column, panel_width, screen)
 
-        # Draw the entry in the specified position
-        screen.top_panel1.addstr(y, int(x), text)
-
-        # Move to the next row
-        current_row += 1
-    screen.top_panel1.addstr(panel_height -4, 2, f"{'Health':<{11}}: " + create_health_bar(character.health, character.max_health))
-    screen.top_panel1.addstr(panel_height -3, 2, f"{'Stamina':<{11}}: " + create_health_bar(character.stamina, character.max_stamina))
-    screen.top_panel1.addstr(panel_height -2, 2, f"{'Mana':<{11}}: " + create_health_bar(character.mana, character.max_mana))
+    screen.top_panel1.addstr(panel_height -4, 2, f"{'Health':<{11}}: " + create_health_bar(character.stats.health, character.stats.levels.max_health))
+    screen.top_panel1.addstr(panel_height -3, 2, f"{'Stamina':<{11}}: " + create_health_bar(character.stats.stamina, character.stats.levels.max_stamina))
+    screen.top_panel1.addstr(panel_height -2, 2, f"{'Mana':<{11}}: " + create_health_bar(character.stats.mana, character.stats.levels.max_mana))
     screen.top_panel1.refresh()
 
 def draw_top_right(screen):
@@ -124,6 +139,8 @@ def draw_bottom(screen, output, input_buffer, connection):
     screen.bottom_panel.box()
     screen.bottom_panel.addstr(0, 1, "Bottom Panel", curses.A_BOLD)
     # Display the output in the bottom panel
+    if output is None:
+        output = ""
     screen.bottom_panel.addstr(1, 1, output)  # Adjust the row as needed
 
     # Display the input buffer

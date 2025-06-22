@@ -6,6 +6,17 @@ from character import Character
 from position import Position2D
 from draw import draw, ScreenMeasurements
 from client import positions_lock, player_positions, Connection
+from views import View, WorldView, LevelUpView
+
+# Initialize views
+views = {
+    View.WORLD: WorldView(),
+    View.LEVEL_UP: LevelUpView()
+}
+
+class GameState:
+    def __init__(self):
+        self.current_view = View.WORLD
 
 import logging
 import sys
@@ -31,24 +42,22 @@ def try_move_player(connection, character, x, y):
     if character.moveTo(x, y, connection.map):
         connection.send_position_update(character)
 
-def handle_input(key, input_buffer, output, character, connection):
+
+def handle_input(key, input_buffer, output, character, connection, game_state):
     """Handle user input and update the input buffer and character position."""
     if key in (curses.KEY_BACKSPACE, 8):  # Handle backspace
         input_buffer = input_buffer[:-1]  # Remove the last character
     elif key == curses.KEY_ENTER or key == 10:  # Handle enter
         # Process the command
-        if input_buffer.strip() == "quit":
-            output = "Quitting..."  # Placeholder for future functionality
-        elif input_buffer.strip() in ["w", "work"]:
-            output = "Working tile..."
-            connection.send_update(character, "work")
-        elif input_buffer.strip() in ["a", "activate"]:
-            output = "Activating tile..."
-            connection.send_update(character, "activate")
-        elif input_buffer.strip() == "run":
-            output = "Running command..."  # Placeholder for future functionality
-        else:
-            output = f"Unknown command: {input_buffer.strip()}"
+        command = input_buffer.strip()
+        # Handle the view change here, otherwise pass the handling to the view's handle_input()
+        if command in ["l", "level", "levelup"]:
+            game_state.current_view = View.LEVEL_UP
+            return "", "Switching View"
+        elif command in ["b", "back"]:
+            game_state.current_view = View.WORLD
+            return "", "Switching View"
+        output = views[game_state.current_view].handle_input(command, character, connection)
         input_buffer = ""  # Clear the input buffer after processing
     elif key == curses.KEY_UP:  # Move up
         try_move_player(connection, character, character.position.x, character.position.y - 1)
@@ -63,8 +72,8 @@ def handle_input(key, input_buffer, output, character, connection):
 
     return input_buffer, output
 
-def init_game(username):
-    character = Character(username)  # Start in the middle of the map
+def init_game(connection, username):
+    character = Character(connection, username)  # Start in the middle of the map
     return character
 
 def main(stdscr, host, username):
@@ -79,18 +88,19 @@ def main(stdscr, host, username):
     output = input_buffer = ""  # Initialize the input buffer
     stdscr.nodelay(True)  # Make getch non-blocking
 
-    character = init_game(username)
-
     # Create connection to the server with host and username
     connection = Connection(host, username=username)
+    character = init_game(connection, username)
     connection.send_position_update(character)
+
+    game_state = GameState()
 
     while True:
         with positions_lock:
-            draw(screen, output, input_buffer, connection, character, player_positions)  # Call draw to update the display
+            views[game_state.current_view].draw(screen, output, input_buffer, connection, character, player_positions)
         key = stdscr.getch()  # Get user input
 
-        input_buffer, output = handle_input(key, input_buffer, output, character, connection)
+        input_buffer, output = handle_input(key, input_buffer, output, character, connection, game_state)
 
 if __name__ == "__main__":
     # Initialize the argument parser

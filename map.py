@@ -175,6 +175,7 @@ default_map_string = \
 "wwwwwwwwwwwwwwwwwwwwwwwwwmrmwwwwwwwwwwwwrwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwbwwwwwwwwwwwwwrwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwmwwwwwwwwwwwwwwwwww"\
+"wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwmwwwwwwwwwwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwwwwwwwwwwwwwwww"\
 "rrrbrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrbrrr"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwwwwwwwwwwwwwwww"\
