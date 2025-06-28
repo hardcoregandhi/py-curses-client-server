@@ -4,6 +4,8 @@ import miniupnpc
 import gzip
 import logging
 import sys
+from fight import FightManager
+
 
 # Configure the logger
 logging.basicConfig(
@@ -45,11 +47,6 @@ import struct
 from struct import pack
 from event_manager import EventManager
 
-position_packet = {
-    'player_id': "",
-    'position': ""
-}
-
 class GameServer:
     def __init__(self, host='0.0.0.0', port=43210):
         self.host = host
@@ -57,6 +54,7 @@ class GameServer:
         self.event_manager = EventManager()
         self.world = GameWorld(self.event_manager)
         self.players = {}  # Dictionary to hold player data
+        self.client_threads = {}
         self.register_subscriptions()
 
     def start(self):
@@ -69,7 +67,8 @@ class GameServer:
             while True:
                 client_socket, addr = server_socket.accept()
                 logging.info(f"Player connected from {addr}")
-                threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+                self.client_threads[f"{addr}"] = threading.Thread(target=self.handle_client, args=(client_socket,))
+                self.client_threads[f"{addr}"].start()
 
     
     def send_data_in_chunks(self, sock, json_data, chunk_size=1024):
@@ -100,7 +99,11 @@ class GameServer:
         buffer = ""
         try:
             while True:
-                data = client_socket.recv(1024).decode('utf-8')
+                try:
+                    data = client_socket.recv(1024).decode('utf-8')
+                except Exception as ex:
+                    logging.error(f"Lost connection {client_socket}")
+                    logging.error(ex)
                 if not data:
                     break  # Client disconnected
 
@@ -167,14 +170,18 @@ class GameServer:
         if command.get('action') and command['action'] == 'move':
             position = command['position']
             self.move_player(player_id, position)
-        if command.get('action') and command['action'] == 'work':
+        elif command.get('action') and command['action'] == 'work':
             position = command['position']
             player_name = command['player_id']
             self.work_tile(player_name, position)
-        if command.get('action') and command['action'] == 'activate':
+        elif command.get('action') and command['action'] == 'activate':
             position = command['position']
             player_name = command['player_id']
             self.activate_tile(player_name, position)
+        elif command.get('action') and command['action'] == 'fight':
+            position = command['position']
+            player_name = command['player_id']
+            self.fight_requested(position, player_id)
 
     def work_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
@@ -183,6 +190,20 @@ class GameServer:
     def activate_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
         tile.cooldown(player_id)
+
+    def fight_requested(self, position, player_id):
+        message = {
+            'player_id': player_id,
+            'message': "fight requested"
+        }
+        self.broadcast(message)
+        new_fight = FightManager(player_id, position, self.players, self.world)
+        if new_fight.defender == None:
+            self.message_player(player_id, "No defender found")
+        else:
+            self.message_player(new_fight.defender, "fight_initiated_defender")
+            self.message_player(new_fight.aggressor, "fight_initiated_aggressor")
+            
 
     def move_player(self, player_id, position):
         """Move the player based on the direction provided."""
@@ -195,6 +216,16 @@ class GameServer:
 
         # Notify all players of the new position (optional)
         self.notify_players(player_id, new_position)
+
+    def message_player(self, player_id, message):
+        message_packet = {
+            'player_id': player_id,
+            'message': message
+        }
+        self.send_to_player(player_id, message_packet)
+
+    def send_to_player(self, player_id, packet):
+        self.players[player_id]['socket'].sendall(json.dumps(packet).encode('utf-8'))
 
     def broadcast(self, data_packet):
         for pid, player in self.players.items():

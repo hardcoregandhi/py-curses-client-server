@@ -34,15 +34,15 @@ def create_health_bar(current_health, max_health, bar_length=30):
 def draw_map(window, screen, game_map, character, player_positions):
     screen.top_panel2.clear()
     screen.top_panel2.box()
-    screen.top_panel2.addstr(0, 1, "Map", curses.A_BOLD)
+    screen.top_panel2.addstr(0, 1, f"Map {character.position}", curses.A_BOLD)
     # Calculate the starting position to draw the map
     window_height, window_width = window.getmaxyx()
     start_x = max(1, character.position.x - window_width // 2) -2
     start_y = max(1, character.position.y - window_height // 2) -2
 
     # Draw the map within the window
-    for y in range(window_height):
-        for x in range(window_width):
+    for y in range(1, window_height-1):
+        for x in range(1, window_width-1):
             map_x = start_x + x
             map_y = start_y + y
             tile = game_map.get_tile(map_x, map_y)
@@ -59,7 +59,6 @@ def draw_map(window, screen, game_map, character, player_positions):
             if (map_x, map_y) == (character.position.x, character.position.y):
                 window.addch(y, x, '@')  # Draw the character at its position
             for player_id, position in player_positions.items():
-                logging.info(f"{player_id}: {position}\n")
                 if (map_x, map_y) == (position[0], position[1]):
                     window.addch(y, x, '%')  # Draw the character at its position
 
@@ -117,9 +116,9 @@ def draw_top_left(screen, character):
     # Draw levelable stats
     current_column, current_row = draw_stats(character.stats.levels, current_column+1, 1, max_entries_per_column, panel_width, screen)
 
-    screen.top_panel1.addstr(panel_height -4, 2, f"{'Health':<{11}}: " + create_health_bar(character.stats.health, character.stats.levels.max_health))
-    screen.top_panel1.addstr(panel_height -3, 2, f"{'Stamina':<{11}}: " + create_health_bar(character.stats.stamina, character.stats.levels.max_stamina))
-    screen.top_panel1.addstr(panel_height -2, 2, f"{'Mana':<{11}}: " + create_health_bar(character.stats.mana, character.stats.levels.max_mana))
+    screen.top_panel1.addstr(panel_height -4, 2, f"{'Health':<{7}}: " + create_health_bar(character.stats.health, character.stats.levels.max_health))
+    screen.top_panel1.addstr(panel_height -3, 2, f"{'Stamina':<{7}}: " + create_health_bar(character.stats.stamina, character.stats.levels.max_stamina))
+    screen.top_panel1.addstr(panel_height -2, 2, f"{'Mana':<{7}}: " + create_health_bar(character.stats.mana, character.stats.levels.max_mana))
     screen.top_panel1.refresh()
 
 def draw_top_right(screen):

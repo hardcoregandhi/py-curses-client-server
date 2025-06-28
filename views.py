@@ -28,13 +28,13 @@ class WorldView(BaseView):
         elif command in ["w", "work"]:
             if character.stats.stamina:
                 output = "Working tile..."
-                connection.send_update(character, "work")
+                connection.send_action(character, "work")
             else:
                 output = "Not enough stamina to work."
         elif command in ["a", "activate"]:
             if character.stats.stamina:
                 output = "Activating tile..."
-                connection.send_update(character, "activate")
+                connection.send_action(character, "activate")
             else:
                 output = "Not enough stamina to activate."
         elif command in ["r", "run"]:

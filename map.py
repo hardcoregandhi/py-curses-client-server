@@ -15,6 +15,10 @@ import uuid
 import json
 from position import Position2D
 import logging
+import math
+
+from pathfinding.core.grid import Grid
+from pathfinding.finder.a_star import AStarFinder
 
 class Tile:
     def __init__(self, event_manager, tile_type, position, additional_data=None):
@@ -105,6 +109,7 @@ class GameMap:
         self.width = width
         self.height = height
         self.map = []
+        self.grid = None # Pathfinding
         self.additional_data = {}
         self.create_map(event_manager, map_string)
 
@@ -170,7 +175,115 @@ class GameMap:
             'additional_data': self.additional_data
         }
 
+    def find_closest_player_to_player(self, player_id, player_pos, player_positions):
+        """Find the closest player to the given player_id."""
+        # if player_id not in player_positions:
+        #     logging.warning("Couldn't find initiating player in player_positions")
+        #     return None, None  # Player not found
+        if not player_positions:
+            return None, None
+        player_position = Position2D.from_list(player_pos)
+        closest_player_id = None
+        closest_distance = float('inf')
+
+        for other_player_id, other_data in player_positions.items():
+            other_position = Position2D.from_list(other_data['position'])
+            logging.info(f"other_player_id {other_player_id} other_position {other_position}")
+            if other_player_id == player_id:
+                continue  # Skip the same player
+
+            # Calculate the distance
+            # distance = self.calculate_distance(player_position, other_position)
+
+            # Check if the path is walkable
+            path = self.find_walkable_path(player_position, other_position)
+            if (path):
+                if len(path) < closest_distance:
+                    closest_distance = len(path)
+                    closest_position = other_position
+                    closest_player_id = other_player_id
+
+        return closest_player_id, closest_position
+
+    def calculate_distance(self, pos1, pos2):
+        """Calculate the Euclidean distance between two positions."""
+        return math.sqrt((pos1.x - pos2.x) ** 2 + (pos1.y - pos2.y) ** 2)
+
+    # def is_path_walkable(self, start, end):
+    #     """Check if the path between start and end positions is walkable."""
+    #     # You can implement a simple line-of-sight check or a pathfinding algorithm here.
+    #     # For simplicity, we'll check all tiles between the two positions.
+    #     x1, y1 = start.x, start.y
+    #     x2, y2 = end.x, end.y
+
+    #     # Use Bresenham's line algorithm to get the points between the two positions
+    #     points = self.bresenham(x1, y1, x2, y2)
+
+    #     for x, y in points:
+    #         if not self.is_walkable(x, y):
+    #             return False  # Found a non-walkable tile
+
+    #     return True
+
+    def bresenham(self, x1, y1, x2, y2):
+        """Bresenham's line algorithm to get the points between two coordinates."""
+        points = []
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
+
+        while True:
+            points.append((x1, y1))
+            if x1 == x2 and y1 == y2:
+                break
+            err2 = err * 2
+            if err2 > -dy:
+                err -= dy
+                x1 += sx
+            if err2 < dx:
+                err += dx
+                y1 += sy
+
+        return points
     
+
+    def find_walkable_path(self, start, end):
+        # Create a grid representation for pathfinding
+        if not self.grid:
+            grid_data = [[1 if self.is_walkable(x, y) else 0 for x in range(self.width)] for y in range(self.height)]
+            self.grid = grid = Grid(matrix=grid_data)
+
+        # Define start and end nodes
+        start_node = self.grid.node(start.x, start.y)
+        end_node = self.grid.node(end.x, end.y)
+
+        # Create an A* finder
+        finder = AStarFinder()
+
+        # Find the path
+        path, _ = finder.find_path(start_node, end_node, self.grid)
+        return path
+
+    def is_path_walkable(self, start, end):
+        """Check if the path between start and end positions is walkable using A*."""
+        path = self.find_walkable_path(start, end)
+        return path is not None  # Return True if a path exists, False otherwise
+
+test_map_string = \
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+"xxxxxxxxxx"\
+
 default_map_string = \
 "wwwwwwwwwwwwwwwwwwwwwwwwwmrmwwwwwwwwwwwwrwwwwwwwww"\
 "wwwwwwwwwwwwwwwwwwwwwwwwwwbwwwwwwwwwwwwwrwwwwwwwww"\

@@ -88,7 +88,7 @@ class Connection:
         return client_socket
 
 
-    def send_update(self, character, action):
+    def send_action(self, character, action):
         initial_state = {
             'player_id': self.username,
             'position': character.position,
@@ -98,10 +98,10 @@ class Connection:
         return self.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
 
     def send_tile_update(self, character):
-        self.send_update(character, "farm")
+        self.send_action(character, "farm")
 
     def send_position_update(self, character):
-        self.send_update(character, "move")
+        self.send_action(character, "move")
 
     def receive_messages(self):
         """Thread to receive messages from the server and update player positions."""

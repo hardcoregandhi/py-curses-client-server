@@ -49,7 +49,8 @@ def handle_input(key, input_buffer, output, character, connection, game_state):
             game_state.current_view = View.LEVEL_UP
             return "", "Switching View"
         elif command in ["f", "fight"]:
-            game_state.current_view = View.BATTLE
+            # game_state.current_view = View.BATTLE
+            connection.send_action(character, "fight")
             return "", "Switching View"
         elif command in ["b", "back"]:
             game_state.current_view = View.WORLD
