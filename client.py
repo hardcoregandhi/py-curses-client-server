@@ -154,6 +154,9 @@ class Connection:
                                     self.map.event_manager.publish("damage_received", None, None, None)
                                 if command["message"] == "fight_initiated":
                                     self.map.event_manager.publish("fight_initiated", None, None, None)
+                                if command["message"] == "fight_concluded":
+                                    self.map.event_manager.publish("fight_concluded", None, None, None)
+
                             elif command.get('origin') and command.get('origin') == "tile":
                                 logging.info("tile action received")
                                 action = command['action']

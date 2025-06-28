@@ -30,6 +30,7 @@ class Character:
         self.name = name
         self.stats = Stats()
         self.position = Position2D(8,8)
+        self.connection = connection 
         self.register_subscriptions(connection.map.event_manager)
 
     
@@ -68,9 +69,10 @@ class Character:
 
     def damage_received(self, _, __, ___):
         self.stats.health -= 1
-        if(self.stats.health == 0):
+        if(self.stats.health <= 0):
             logging.info(f"Player {self.name} died")
-            self.event_manager.publish('player_died')
+            self.connection.map.event_manager.publish('player_died', None, None, None)
+            self.connection.send_action(self, "player_died")
 
     
     def __iter__(self):

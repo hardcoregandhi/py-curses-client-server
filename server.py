@@ -189,6 +189,10 @@ class GameServer:
             position = command['position']
             player_name = command['player_id']
             self.fight_requested(position, player_id)
+        elif command.get('action') and command['action'] == 'player_died':
+            position = command['position']
+            player_name = command['player_id']
+            self.event_manager.publish("player_died", command['player_id'], command['position'], True)
         elif command.get('action') and command['action'] == 'fight_action':
             position = command['position']
             player_id = command['player_id']
@@ -314,6 +318,10 @@ class GameServer:
     def notify_player_died(self, player_id, position, is_success):
         self.message_player(player_id, "player_died")
         # Check for fights ending
+        for fight in self.fights:
+            if fight.aggressor == player_id or fight.defender == player_id:
+                self.message_player(fight.aggressor, "fight_concluded")
+                self.message_player(fight.defender, "fight_concluded")
 
 if __name__ == "__main__":
     server = GameServer()
