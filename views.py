@@ -1,5 +1,6 @@
 from enum import Enum
 import curses
+import logging
 from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left
 from character import Character
 from fight import FightAction
@@ -154,19 +155,21 @@ class BattleView(BaseView):
             FightAction_value = int(command)
             # Check if the value corresponds to an enum member
             if FightAction_value in (FightAction.value for FightAction in FightAction):
-                command = FightAction(FightAction_value)
+                fight_action = FightAction(FightAction_value)
             else:
-                return("Invalid FightAction! Please choose 'rock', 'paper', 'scissors', or 'none'.")
+                return("Invalid FightAction! Please choose '1', '2', '3'.")
         else:
             # Attempt to convert the input to the corresponding enum member
             try:
-                command = FightAction[command.upper()]
+                fight_action = FightAction[command.upper()]
             except KeyError:
-                return("Invalid FightAction! Please choose 'rock', 'paper', 'scissors', or 'none'.")
+                return("Invalid FightAction! Please choose '1', '2', '3'.")
 
         # Send the player's action to the server
-        connection.send_fight_action(character, command.value)
-        return f"Sent {command}"
+        sent_value = int(fight_action.value)
+        logging.info(character.name, sent_value)
+        connection.send_fight_action(character, sent_value)
+        return f"Sent {fight_action}"
     
     def draw_character(self, window, y, x):
         character_representation = \

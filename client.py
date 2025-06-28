@@ -43,9 +43,22 @@ class Connection:
         self.username = username
         self.client_socket = self.create_connection(host, port, username)
         self.map = self.download_map()
+        self.player_id = self.get_id()
         self.message_history = MessageHistory()
         # Start a thread to receive messages from the server
         threading.Thread(target=self.receive_messages, args=(), daemon=True).start()
+
+    def get_id(self):
+        data_packet = {
+            'request': 'id',
+        }
+        self.client_socket.sendall(json.dumps(data_packet).encode('utf-8'))
+        data = self.client_socket.recv(1024).decode('utf-8')
+        data = json.loads(data)
+        # send our 0 ack
+        assert len(b'\00') == 1
+        self.client_socket.sendall(b'\00')
+        return data['id']
 
     def download_map(self):
         data_packet = {
@@ -89,7 +102,7 @@ class Connection:
 
     def send_fight_action(self, character, fight_action):
         initial_state = {
-            'player_id': self.username,
+            'player_id': self.player_id,
             'position': character.position,
             'action': 'fight_action',
             'fight_action' : fight_action
@@ -98,7 +111,7 @@ class Connection:
 
     def send_action(self, character, action):
         initial_state = {
-            'player_id': self.username,
+            'player_id': self.player_id,
             'position': character.position,
             'action': action
         }

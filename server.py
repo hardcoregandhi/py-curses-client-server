@@ -4,7 +4,7 @@ import miniupnpc
 import gzip
 import logging
 import sys
-from fight import FightManager
+from fight import FightAction, FightManager
 
 
 # Configure the logger
@@ -55,6 +55,7 @@ class GameServer:
         self.world = GameWorld(self.event_manager)
         self.players = {}  # Dictionary to hold player data
         self.client_threads = {}
+        self.fights = []
         self.register_subscriptions()
 
     def start(self):
@@ -155,6 +156,12 @@ class GameServer:
     def process_command(self, player_id, command):
         """Process movement commands from the player."""
         logging.info(command)
+        if command.get("request") and command['request'] == 'id':
+            data_packet = {
+                'request': 'id',
+                'id': player_id
+            }
+            self.players[player_id]['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
         if command.get("request") and command['request'] == 'map':
             data_packet = {
                 'request': 'map',
@@ -182,6 +189,15 @@ class GameServer:
             position = command['position']
             player_name = command['player_id']
             self.fight_requested(position, player_id)
+        elif command.get('action') and command['action'] == 'fight_action':
+            position = command['position']
+            player_id = command['player_id']
+            # Set fight action in fight
+            for fight in self.fights:
+                if fight.aggressor == player_id:
+                    fight.aggressor_action = FightAction(command['fight_action'])
+                if fight.defender == player_id:
+                    fight.defender_action = FightAction(command['fight_action'])
 
     def work_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
@@ -203,6 +219,7 @@ class GameServer:
         else:
             self.message_player(new_fight.defender, "fight_initiated")
             self.message_player(new_fight.aggressor, "fight_initiated")
+            self.fights.append(new_fight)
             
 
     def move_player(self, player_id, position):

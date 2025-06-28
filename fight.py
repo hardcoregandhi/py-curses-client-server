@@ -45,10 +45,14 @@ class FightManager:
             return None
         
     def action_round(self):
+        logging.info("round ended")
+        # self.message_player(self.defender_action, "round ended")
         resolution = self.resolve_action(self.aggressor_action, self.defender_action)
-        if (FightResolution.RIGHTWINS):
+        if (resolution == FightResolution.RIGHTWINS):
+            # self.message_player(self.defender, "dealt damage")
             self.world.event_manager.publish('damage_received', self.aggressor, self.position, True)
-        if (FightResolution.LEFTWINS):
+        if (resolution == FightResolution.LEFTWINS):
+            # self.message_player(self.aggressor, "dealt damage")
             self.world.event_manager.publish('damage_received', self.defender, self.position, True)
         self.start_next_round()
         return resolution
@@ -74,4 +78,4 @@ class FightManager:
         
     def start_next_round(self):
         self.aggressor_action = self.defender_action = FightAction.NONE
-        threading.Timer(10, self.action_round).start()
+        threading.Timer(5, self.action_round).start()
