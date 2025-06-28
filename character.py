@@ -1,6 +1,7 @@
 from collections import namedtuple
 from position import Position2D
 import threading
+import logging
 
 class LevelableStats:
     def __init__(self):
@@ -45,6 +46,7 @@ class Character:
         event_manager.subscribe('tile_working', self.character_working_tile)
         event_manager.subscribe('tile_worked', self.character_worked_tile)
         event_manager.subscribe('tile_activated', self.character_activated_tile)
+        event_manager.subscribe('damage_received', self.damage_received)
 
     def character_working_tile(self, *args):
         self.add_xp(1)
@@ -63,6 +65,12 @@ class Character:
     
     def restore_stamina(self):
         self.stats.stamina += 1
+
+    def damage_received(self, _, __, ___):
+        self.stats.health -= 1
+        if(self.stats.health == 0):
+            logging.info(f"Player {self.name} died")
+            self.event_manager.publish('player_died')
 
     
     def __iter__(self):

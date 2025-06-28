@@ -183,7 +183,7 @@ class GameMap:
         if not player_positions:
             return None, None
         player_position = Position2D.from_list(player_pos)
-        closest_player_id = None
+        closest_player_id = closest_position = None
         closest_distance = float('inf')
 
         for other_player_id, other_data in player_positions.items():

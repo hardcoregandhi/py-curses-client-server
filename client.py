@@ -87,6 +87,14 @@ class Connection:
         
         return client_socket
 
+    def send_fight_action(self, character, fight_action):
+        initial_state = {
+            'player_id': self.username,
+            'position': character.position,
+            'action': 'fight_action',
+            'fight_action' : fight_action
+        }
+        return self.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
 
     def send_action(self, character, action):
         initial_state = {
@@ -127,6 +135,12 @@ class Connection:
                                 # Update the player position in a thread-safe manner
                                 with positions_lock:
                                     player_positions[player_id] = position
+                            elif command.get("message"):
+                                if command["message"] == "damage_received":
+                                    # hurt player
+                                    self.map.event_manager.publish("damage_received", None, None, None)
+                                if command["message"] == "fight_initiated":
+                                    self.map.event_manager.publish("fight_initiated", None, None, None)
                             elif command.get('origin') and command.get('origin') == "tile":
                                 logging.info("tile action received")
                                 action = command['action']

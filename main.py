@@ -9,7 +9,16 @@ from client import positions_lock, player_positions, Connection
 from views import View, Views
 
 class GameState:
-    def __init__(self):
+    def __init__(self, event_manager):
+        self.current_view = View.WORLD
+        self.event_manager = event_manager
+        self.event_manager.subscribe("fight_initiated", self.fight_initiated)
+        self.event_manager.subscribe("fight_concluded", self.fight_concluded)
+        
+    def fight_initiated(self, _,__,___):
+        self.current_view = View.BATTLE
+
+    def fight_concluded(self, _,__,___):
         self.current_view = View.WORLD
 
 import logging
@@ -91,7 +100,7 @@ def main(stdscr, host, username):
     character = init_game(connection, username)
     connection.send_position_update(character)
 
-    game_state = GameState()
+    game_state = GameState(connection.map.event_manager)
 
     while True:
         with positions_lock:

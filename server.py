@@ -201,8 +201,8 @@ class GameServer:
         if new_fight.defender == None:
             self.message_player(player_id, "No defender found")
         else:
-            self.message_player(new_fight.defender, "fight_initiated_defender")
-            self.message_player(new_fight.aggressor, "fight_initiated_aggressor")
+            self.message_player(new_fight.defender, "fight_initiated")
+            self.message_player(new_fight.aggressor, "fight_initiated")
             
 
     def move_player(self, player_id, position):
@@ -247,6 +247,9 @@ class GameServer:
         self.event_manager.subscribe('tile_worked', self.notify_tile_worked)
         self.event_manager.subscribe('tile_activated', self.notify_tile_activated)
         self.event_manager.subscribe('tile_ready', self.notify_tile_ready)
+        self.event_manager.subscribe('damage_received', self.notify_damage_received)
+        self.event_manager.subscribe('player_died', self.notify_player_died)
+
 
     def notify_tile_working(self, player_id, tile_position, is_success):
         data_packet = {
@@ -287,6 +290,13 @@ class GameServer:
             'is_success': is_success
         }
         self.broadcast(data_packet)
+
+    def notify_damage_received(self, player_id, position, is_success):
+        self.message_player(player_id, "damage_received")
+
+    def notify_player_died(self, player_id, position, is_success):
+        self.message_player(player_id, "player_died")
+        # Check for fights ending
 
 if __name__ == "__main__":
     server = GameServer()

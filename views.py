@@ -1,7 +1,8 @@
 from enum import Enum
 import curses
-from draw import draw, ScreenMeasurements, create_health_bar
+from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left
 from character import Character
+from fight import FightAction
 
 class View(Enum):
     WORLD = "world"
@@ -142,20 +143,30 @@ class BattleView(BaseView):
     def draw(self, screen, output, input_buffer, connection, character, player_positions):
         # self.draw_battle_interface(screen, output, input_buffer, player_character, enemy_character)
         self.draw_battle_interface_in_map_area(screen.top_panel2, screen, output, input_buffer, character, character)
+        draw_top_left(screen, character)
+        draw_bottom(screen, output, input_buffer, connection)
 
     def handle_input(self, command, character, connection):
         """Handle battle actions based on player input."""
-        valid_commands = ["slash", "stab", "parry"]
-        if command not in valid_commands:
-            return f"Invalid command: {command}. Please choose 'slash', 'stab', or 'parry'."
+        # Check if the input is a number
+        if command.isdigit() or (command[0] == '-' and command[1:].isdigit()):
+            # Convert to integer
+            FightAction_value = int(command)
+            # Check if the value corresponds to an enum member
+            if FightAction_value in (FightAction.value for FightAction in FightAction):
+                command = FightAction(FightAction_value)
+            else:
+                return("Invalid FightAction! Please choose 'rock', 'paper', 'scissors', or 'none'.")
+        else:
+            # Attempt to convert the input to the corresponding enum member
+            try:
+                command = FightAction[command.upper()]
+            except KeyError:
+                return("Invalid FightAction! Please choose 'rock', 'paper', 'scissors', or 'none'.")
 
         # Send the player's action to the server
-        connection.send_action(character.id, command)
-
-        # Wait for the server to respond with the outcome
-        outcome = connection.wait_for_battle_outcome(character.id)
-
-        return outcome
+        connection.send_fight_action(character, command.value)
+        return f"Sent {command}"
     
     def draw_character(self, window, y, x):
         character_representation = \
@@ -180,8 +191,8 @@ class BattleView(BaseView):
         window.addstr(panel_height-8, 1, f"Enemy: {enemy_character.name} (HP: {enemy_character.stats.health})")
         window.addstr(panel_height-7, 1, f"{'Health':<{11}}: " + create_health_bar(enemy_character.stats.health, enemy_character.stats.levels.max_health))
         window.addstr(panel_height-5, 1, "Choose your action:")
-        window.addstr(panel_height-4, 1, "1. Slash")
-        window.addstr(panel_height-3, 1, "2. Stab")
+        window.addstr(panel_height-4, 1, "1. Stab")
+        window.addstr(panel_height-3, 1, "2. Slash")
         window.addstr(panel_height-2, 1, "3. Parry")
 
 
