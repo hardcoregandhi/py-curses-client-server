@@ -37,7 +37,6 @@ class TestFight(unittest.TestCase):
         players[2] = {"position": Position2D(14, 8)}
         new_fight = FightManager(player_id, [3,8], players, server.world)
         self.assertIsNone(new_fight.defender)
-        self.assertIsNot(new_fight.defender, new_fight.defender)
 
         players[2] = {"position": Position2D(3, 8)}
         new_fight = FightManager(player_id, [14,8], players, server.world)
