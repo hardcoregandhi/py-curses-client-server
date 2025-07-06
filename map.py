@@ -47,7 +47,7 @@ class Tile:
         self.is_ready_to_work = False
         self.is_finished_work = True
         # Notify players that the tile can be activated
-        self.event_manager.publish('tile_worked', None, self.position, True)
+        self.event_manager.publish('tile_worked', position=self.position, is_success=True)
 
     def work(self, player_id):
         """Player works the tile, starting the work timer."""
@@ -58,10 +58,10 @@ class Tile:
             self.is_finished_work = False
             # Start the activation timer
             threading.Timer(self.work_time, self.work_complete).start()
-            self.event_manager.publish('tile_working', player_id, self.position, True)
+            self.event_manager.publish('tile_working', player_id=player_id, position=self.position, is_success=True)
         else:
             logging.info(f"Tile {self.id} is not ready to work.")
-            self.event_manager.publish('tile_working', player_id, self.position, False)
+            self.event_manager.publish('tile_working', player_id=player_id, position=self.position, is_success=False)
 
     def cooldown(self, player_id):
         """Player activates the tile, starting the cooldown timer."""
@@ -71,10 +71,10 @@ class Tile:
             self.is_cooling_down = True
             # Start the cooldown timer
             threading.Timer(self.cooldown_time, self.cooldown_complete).start()
-            self.event_manager.publish('tile_activated', player_id, self.position, True)
+            self.event_manager.publish('tile_activated', player_id=player_id, position=self.position, is_success=True)
         else:
             logging.info(f"Tile {self.id} is not finished working.")
-            self.event_manager.publish('tile_activated', player_id, self.position, False)
+            self.event_manager.publish('tile_activated', player_id=player_id, position=self.position, is_success=False)
 
     def cooldown_complete(self):
         """Called when the cooldown timer completes."""
@@ -82,7 +82,7 @@ class Tile:
         self.is_ready_to_work = True
         self.is_cooling_down = False
         # Notify players that the tile can be worked again
-        self.event_manager.publish('tile_ready', None, self.position, True)
+        self.event_manager.publish('tile_ready', position=self.position, is_success=True)
 
     def notify_players(self):
         """Notify players about the tile's status."""

@@ -11,8 +11,8 @@ class EventManager:
             self.listeners[event_type] = []
         self.listeners[event_type].append(listener)
 
-    def publish(self, event_type, player_id, position, is_success):
-        logging.info(f"Publishing event: {event_type} with data: {player_id} {position} {is_success}")
+    def publish(self, event_type, *args, **kwargs):
+        logging.info(f"Publishing event: {event_type} with data: {args} {kwargs}")
         if event_type in self.listeners:
             for listener in self.listeners[event_type]:
-                listener(player_id, position, is_success)
+                listener(*args, **kwargs)

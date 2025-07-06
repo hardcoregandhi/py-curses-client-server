@@ -140,44 +140,51 @@ class Connection:
                     if message:
                         try:
                             command = json.loads(message)
-                            logging.info(command)
-                            self.message_history.add_message(str(command))
-                            if command.get('new_position'):
-                                player_id = command['player_id']
-                                position = command['new_position']
-                                # Update the player position in a thread-safe manner
-                                with positions_lock:
-                                    player_positions[player_id] = position
-                            elif command.get("message"):
-                                if command["message"] == "damage_received":
-                                    # hurt player
-                                    self.map.event_manager.publish("damage_received", None, None, None)
-                                if command["message"] == "fight_initiated":
-                                    self.map.event_manager.publish("fight_initiated", None, None, None)
-                                if command["message"] == "fight_concluded":
-                                    self.map.event_manager.publish("fight_concluded", None, None, None)
-
-                            elif command.get('origin') and command.get('origin') == "tile":
-                                logging.info("tile action received")
-                                action = command['action']
-                                pos_array = command['tile_pos']
-                                is_success = command['is_success']
-                                if not is_success:
-                                    continue
-                                tile_pos = Position2D(pos_array[0], pos_array[1])
-                                with map_lock:
-                                    if command.get("player_id"):
-                                        player_id = command['player_id']
-                                    if action == "working":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).work(player_id)
-                                    if action == "worked":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).work_complete()
-                                    if action == "activated":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown(player_id)
-                                    if action == "ready":
-                                        self.map.get_tile(tile_pos.x, tile_pos.y).cooldown_complete()
+                            self.handle_command(command)
                         except json.JSONDecodeError:
                             logging.error("Received invalid JSON:", message)
             except Exception as e:
                 logging.error(f"Error receiving data: {e}")
                 logging.error(repr(traceback.print_exc(e)))
+
+    def handle_command(self, command):
+        logging.info(f"received command : {command}")
+        self.message_history.add_message(str(command))
+        if command.get('new_position'):
+            player_id = command['player_id']
+            position = command['new_position']
+            # Update the player position in a thread-safe manner
+            with positions_lock:
+                player_positions[player_id] = position
+        elif command.get("gift"):
+            player_id = command['player_id']
+            if player_id == self.player_id and command["amount"]:
+                self.map.event_manager.publish("xp_received", player_id=player_id, amount=command["amount"])
+        elif command.get("message"):
+            if command["message"] == "damage_received":
+                # hurt player
+                self.map.event_manager.publish("damage_received")
+            if command["message"] == "fight_initiated":
+                self.map.event_manager.publish("fight_initiated")
+            if command["message"] == "fight_concluded":
+                self.map.event_manager.publish("fight_concluded")
+
+        elif command.get('origin') and command.get('origin') == "tile":
+            logging.info("tile action received")
+            action = command['action']
+            pos_array = command['tile_pos']
+            is_success = command['is_success']
+            if not is_success:
+                return
+            tile_pos = Position2D(pos_array[0], pos_array[1])
+            with map_lock:
+                if command.get("player_id"):
+                    player_id = command['player_id']
+                if action == "working":
+                    self.map.get_tile(tile_pos.x, tile_pos.y).work(player_id)
+                if action == "worked":
+                    self.map.get_tile(tile_pos.x, tile_pos.y).work_complete()
+                if action == "activated":
+                    self.map.get_tile(tile_pos.x, tile_pos.y).cooldown(player_id)
+                if action == "ready":
+                    self.map.get_tile(tile_pos.x, tile_pos.y).cooldown_complete()

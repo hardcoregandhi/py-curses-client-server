@@ -42,7 +42,7 @@ import socket
 import threading
 import json
 from collections import namedtuple
-from map import GameMapEncoderDecoder
+from map import GameMapEncoderDecoder, Tile
 import struct
 from struct import pack
 from event_manager import EventManager
@@ -192,7 +192,7 @@ class GameServer:
         elif command.get('action') and command['action'] == 'player_died':
             position = command['position']
             player_name = command['player_id']
-            self.event_manager.publish("player_died", command['player_id'], command['position'], True)
+            self.event_manager.publish("player_died", player_id=command['player_id'], position=command['position'])
         elif command.get('action') and command['action'] == 'fight_action':
             position = command['position']
             player_id = command['player_id']
@@ -206,10 +206,22 @@ class GameServer:
     def work_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
         tile.work(player_id)
+        reward_packet = {
+            'player_id': player_id,
+            'gift': 'xp',
+            'amount': '1',
+        }
+        self.send_to_player(player_id, reward_packet)
 
     def activate_tile(self, player_id, position):
         tile = self.world.game_map.get_tile(position[0], position[1])
         tile.cooldown(player_id)
+        reward_packet = {
+            'player_id': player_id,
+            'gift': 'xp',
+            'amount': '1',
+        }
+        self.send_to_player(player_id, reward_packet)
 
     def fight_requested(self, position, player_id):
         message = {
@@ -249,7 +261,7 @@ class GameServer:
         self.players[player_id]['socket'].sendall(json.dumps(packet).encode('utf-8'))
 
     def broadcast(self, data_packet):
-        for pid, player in self.players.items():
+        for _, player in self.players.items():
             logging.info(f"Broadcasting {data_packet}")
             player['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
 
@@ -272,54 +284,56 @@ class GameServer:
         self.event_manager.subscribe('player_died', self.notify_player_died)
 
 
-    def notify_tile_working(self, player_id, tile_position, is_success):
+    def notify_tile_working(self, *args, **kwargs):
+        logging.info(kwargs)
         data_packet = {
             'origin': 'tile',
             'action': 'working',
-            'tile_pos': tile_position,
-            'is_success': is_success,
-            'player_id': player_id
-
+            'tile_pos': kwargs.get('position'),
+            'is_success': kwargs.get('is_success'),
+            'player_id': kwargs.get('player_id'),
         }
         self.broadcast(data_packet)
 
-    def notify_tile_worked(self, player_id, tile_position, is_success):
+    def notify_tile_worked(self, *args, **kwargs):
+        logging.info(kwargs)
         data_packet = {
             'origin': 'tile',
             'action': 'worked',
-            'tile_pos': tile_position,
-            'is_success': is_success
-
+            'tile_pos': kwargs.get('position'),
+            'is_success': kwargs.get('is_success'),
         }
         self.broadcast(data_packet)
 
-    def notify_tile_activated(self, player_id, tile_position, is_success):
+    def notify_tile_activated(self, *args, **kwargs):
+        logging.info(kwargs)
         data_packet = {
             'origin': 'tile',
             'action': 'activated',
-            'tile_pos': tile_position,
-            'is_success': is_success,
-            'player_id': player_id
+            'tile_pos': kwargs.get('position'),
+            'is_success': kwargs.get('is_success'),
+            'player_id': kwargs.get('player_id'),
         }
         self.broadcast(data_packet)
 
-    def notify_tile_ready(self, player_id, tile_position, is_success):
+    def notify_tile_ready(self, *args, **kwargs):
+        logging.info(kwargs)
         data_packet = {
             'origin': 'tile',
             'action': 'ready',
-            'tile_pos': tile_position,
-            'is_success': is_success
+            'tile_pos': kwargs.get('position'),
+            'is_success': kwargs.get('is_success'),
         }
         self.broadcast(data_packet)
 
-    def notify_damage_received(self, player_id, position, is_success):
-        self.message_player(player_id, "damage_received")
+    def notify_damage_received(self,  *args, **kwargs):
+        self.message_player(kwargs.get('player_id'), "damage_received")
 
-    def notify_player_died(self, player_id, position, is_success):
-        self.message_player(player_id, "player_died")
+    def notify_player_died(self,  *args, **kwargs):
+        self.message_player(kwargs.get('player_id'), "player_died")
         # Check for fights ending
         for fight in self.fights:
-            if fight.aggressor == player_id or fight.defender == player_id:
+            if fight.aggressor == kwargs.get('player_id') or fight.defender == kwargs.get('player_id'):
                 self.message_player(fight.aggressor, "fight_concluded")
                 self.message_player(fight.defender, "fight_concluded")
 

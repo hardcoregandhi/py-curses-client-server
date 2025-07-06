@@ -50,10 +50,10 @@ class FightManager:
         resolution = self.resolve_action(self.aggressor_action, self.defender_action)
         if (resolution == FightResolution.RIGHTWINS):
             # self.message_player(self.defender, "dealt damage")
-            self.world.event_manager.publish('damage_received', self.aggressor, self.position, True)
+            self.world.event_manager.publish('damage_received', player_id=self.aggressor, position=self.position, success=True)
         if (resolution == FightResolution.LEFTWINS):
             # self.message_player(self.aggressor, "dealt damage")
-            self.world.event_manager.publish('damage_received', self.defender, self.position, True)
+            self.world.event_manager.publish('damage_received', player_id=self.defender, position=self.position, success=True)
         self.start_next_round()
         return resolution
 

@@ -35,7 +35,7 @@ class Character:
 
     
     def add_xp(self, amount):
-        self.stats.xp += amount
+        self.stats.xp += int(amount)
 
     def spend_xp(self, cost):
         if self.stats.xp >= cost:
@@ -48,20 +48,28 @@ class Character:
         event_manager.subscribe('tile_worked', self.character_worked_tile)
         event_manager.subscribe('tile_activated', self.character_activated_tile)
         event_manager.subscribe('damage_received', self.damage_received)
+        event_manager.subscribe('xp_received', self.character_add_xp)
 
-    def character_working_tile(self, *args):
-        self.add_xp(1)
-        self.stats.stamina -= 1
-        threading.Timer(5, self.restore_stamina).start()
+    def character_working_tile(self, *args, **kwargs):
+        if kwargs.get('player_id') == self.connection.player_id:
+            # self.add_xp(1)
+            self.stats.stamina -= 1
+            threading.Timer(5, self.restore_stamina).start()
         return
     
-    def character_worked_tile(self, *args):
+    def character_worked_tile(self, *args, **kwargs):
         return
     
-    def character_activated_tile(self, *args):
-        self.add_xp(1)
-        self.stats.stamina -= 1
-        threading.Timer(5, self.restore_stamina).start()
+    def character_activated_tile(self, *args, **kwargs):
+        if kwargs.get('player_id') == self.connection.player_id:
+            # self.add_xp(1)
+            self.stats.stamina -= 1
+            threading.Timer(5, self.restore_stamina).start()
+        return
+    
+    def character_add_xp(self, *args, **kwargs):
+        if kwargs.get('player_id') == self.connection.player_id:
+            self.add_xp(kwargs.get('amount'))
         return
     
     def restore_stamina(self):
@@ -71,7 +79,7 @@ class Character:
         self.stats.health -= 1
         if(self.stats.health <= 0):
             logging.info(f"Player {self.name} died")
-            self.connection.map.event_manager.publish('player_died', None, None, None)
+            self.connection.map.event_manager.publish('player_died', player_id=self.connection.player_id)
             self.connection.send_action(self, "player_died")
 
     

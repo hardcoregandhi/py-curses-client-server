@@ -7,7 +7,7 @@ from position import Position2D
 from draw import draw, ScreenMeasurements
 from client import positions_lock, player_positions, Connection
 from views import View, Views
-
+import socket 
 class GameState:
     def __init__(self, event_manager):
         self.current_view = View.WORLD
@@ -15,10 +15,10 @@ class GameState:
         self.event_manager.subscribe("fight_initiated", self.fight_initiated)
         self.event_manager.subscribe("fight_concluded", self.fight_concluded)
         
-    def fight_initiated(self, _,__,___):
+    def fight_initiated(self):
         self.current_view = View.BATTLE
 
-    def fight_concluded(self, _,__,___):
+    def fight_concluded(self):
         self.current_view = View.WORLD
 
 import logging
