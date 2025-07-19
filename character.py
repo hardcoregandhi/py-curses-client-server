@@ -3,6 +3,8 @@ from position import Position2D
 import threading
 import logging
 
+from views import View
+
 class LevelableStats:
     def __init__(self):
         self.max_health = 5
@@ -75,12 +77,14 @@ class Character:
     def restore_stamina(self):
         self.stats.stamina += 1
 
-    def damage_received(self, _, __, ___):
+    def damage_received(self, *args, **kwargs):
         self.stats.health -= 1
         if(self.stats.health <= 0):
             logging.info(f"Player {self.name} died")
             self.connection.map.event_manager.publish('player_died', player_id=self.connection.player_id)
             self.connection.send_action(self, "player_died")
+            self.connection.map.event_manager.publish('switch_view', new_view=View.DIED)
+
 
     
     def __iter__(self):

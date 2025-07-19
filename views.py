@@ -2,7 +2,6 @@ from enum import Enum
 import curses
 import logging
 from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left, draw_bottom_right
-from character import Character
 from fight import FightAction
 import sys
 
@@ -10,6 +9,7 @@ class View(Enum):
     WORLD = "world"
     LEVEL_UP = "levelup"
     BATTLE = "battle"
+    DEAD = "dead"
 
 class BaseView:
     def draw(self):
@@ -289,9 +289,67 @@ class BattleView(BaseView):
         self.battle_win.refresh()
 
 
+
+class DeadView(BaseView):
+    def __init__(self):
+        self.level_up_win = None
+        # Define available actions as an instance attribute
+        self.actions = {
+            "q": ("Quit game", self.back_to_world_view),
+            # You can add more actions here if needed
+        }
+
+    def draw(self, screen, output, input_buffer, connection, character, player_positions):
+        draw_top_left(screen, character)
+        self.draw_top(screen, output, input_buffer, connection, character, player_positions)
+        self.draw_bottom(screen, output, input_buffer, connection, character, player_positions)
+        draw_bottom_right(screen, output, input_buffer, connection, character, player_positions, self.actions)
+
+    def handle_input(self, command, character, connection):
+        try:
+            # Attempt to cast the command to an integer
+            if command in self.actions:
+                action_description, action_method = self.actions[command]
+                return action_method(character, connection)  # Call the corresponding action method
+
+            command = int(command)
+        except ValueError:
+            # Handle the case where the input is not a valid integer
+            print("Invalid input: Please enter a valid integer.")
+            return "Invalid input: Please enter a valid integer."
+
+    def quit_action(self, character, connection):
+        connection.send_action(character, "client_disconnecting")
+        return "Quitting..."
+
+    def back_to_world_view(self, character, connection):
+        connection.map.event_manager.publish("switch_view", new_view=View.WORLD)
+        return "Switching View"
+
+    def draw_top(self, screen, output, input_buffer, connection, character, player_positions):
+
+        screen.top_panel1.clear()
+        screen.top_panel1.box()
+        screen.bottom_panel.addstr(0, 1, "You died. Please restart the game")
+        screen.bottom_panel.addstr(0, 2, "I couldn't be bothered to code restarting the game")
+        screen.top_panel1.refresh()
+
+    def draw_bottom(self, screen, output, input_buffer, connection, character, player_positions):
+
+        (panel_height, panel_width) = screen.bottom_panel.getmaxyx()
+
+        # Create the bottom panel (window)
+        screen.bottom_panel.clear()
+        screen.bottom_panel.box()
+        screen.bottom_panel.refresh()
+
+
+
+
 # Initialize views
 Views = {
     View.WORLD: WorldView(),
     View.LEVEL_UP: LevelUpView(),
-    View.BATTLE: BattleView()
+    View.BATTLE: BattleView(),
+    View.DEAD: DeadView(),
 }
