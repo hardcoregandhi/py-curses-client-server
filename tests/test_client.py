@@ -18,6 +18,7 @@ class TestClient(unittest.TestCase):
         server_thread.start()
         connection = client.Connection()
         self.assertIsNotNone(connection.map)
+        return True
 
 
 if __name__ == '__main__':

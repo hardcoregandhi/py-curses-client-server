@@ -1,11 +1,13 @@
+import configparser
 import curses
 import argparse
+import os
 from server import add_upnp_port_mapping
 import map
 from character import Character
 from position import Position2D
 from draw import draw, ScreenMeasurements
-from client import positions_lock, player_positions, Connection
+from client import positions_lock, player_positions, Connection, global_exit_flag
 from views import View, Views
 import socket 
 class GameState:
@@ -84,6 +86,9 @@ def init_game(connection, username):
     return character
 
 def main(stdscr, host, username):
+
+    global global_exit_flag
+
     # Hide the cursor
     curses.curs_set(0)
     curses.cbreak()
@@ -102,19 +107,39 @@ def main(stdscr, host, username):
 
     game_state = GameState(connection.map.event_manager)
 
-    while True:
+    while not global_exit_flag and connection.network_thread.is_alive():
+        if global_exit_flag:
+            # close connection
+            connection.close_connection()
+            connection.network_thread.join()
+            # close game
+            break
+
         with positions_lock:
             Views[game_state.current_view].draw(screen, output, input_buffer, connection, character, player_positions)
         key = stdscr.getch()  # Get user input
 
         input_buffer, output = handle_input(key, input_buffer, output, character, connection, game_state)
 
+    sys.exit(0)
+
 if __name__ == "__main__":
+
+    config_file='config.ini'
+    if os.path.exists(config_file):
+        cfg = configparser.read('config.ini')
+        defaultIP = cfg["DEFAULT"]["ServerIP"]
+    else:
+        defaultIP = "127.0.0.1"
+
     # Initialize the argument parser
     parser = argparse.ArgumentParser(description="Game Client")
-    parser.add_argument("-host", type=str, help="Host IP address of the server", default="127.0.0.1")
+    parser.add_argument("-host", type=str, help="Host IP address of the server", default=defaultIP)
     parser.add_argument("-username", type=str, help="Username for the game", default="Player1")
     args = parser.parse_args()
+
+    if socket.gethostname() == 'DESKTOP-H8FAUH8':
+        args.host = "127.0.0.1"
 
     # Initialize the curses application
     curses.wrapper(lambda stdscr: main(stdscr, args.host, args.username))

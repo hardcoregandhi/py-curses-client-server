@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import time
 import threading
+from character import Character
 from map import GameMap, Tile, default_map_string
 import json
 import client
@@ -29,18 +30,23 @@ class TestFight(unittest.TestCase):
         new_fight = FightManager(player_id, [0,0], players, server.world)
         self.assertIsNotNone(new_fight.defender)
         self.assertIs(new_fight.defender, 2)
+        new_fight.exit_flag = True
 
         players[2] = {"position": Position2D(10, 10)}
         new_fight = FightManager(player_id, [0,0], players, server.world)
         self.assertIsNone(new_fight.defender)
+        new_fight.exit_flag = True
 
         players[2] = {"position": Position2D(14, 8)}
         new_fight = FightManager(player_id, [3,8], players, server.world)
         self.assertIsNone(new_fight.defender)
+        new_fight.exit_flag = True
 
         players[2] = {"position": Position2D(3, 8)}
         new_fight = FightManager(player_id, [14,8], players, server.world)
         self.assertIsNone(new_fight.defender)
+        new_fight.exit_flag = True
+        return True
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 
 import json
 import socket
+import sys
 import threading
 import traceback
 from position import Position2D
@@ -17,6 +18,12 @@ positions_lock = threading.Lock()  # Lock for thread-safe access to player_posit
 
 map = {}
 map_lock = threading.Lock()  # Lock for thread-safe access to player_positions
+
+global_exit_flag = False
+
+# Custom exception for signaling exit
+class ExitThread(Exception):
+    pass
 
 class MessageHistory:
     def __init__(self):
@@ -46,7 +53,11 @@ class Connection:
         self.player_id = self.get_id()
         self.message_history = MessageHistory()
         # Start a thread to receive messages from the server
-        threading.Thread(target=self.receive_messages, args=(), daemon=True).start()
+        self.network_thread = threading.Thread(target=self.receive_messages, args=(), daemon=True)
+        self.network_thread.start()
+        self.exit_flag = False
+        threading.Timer(1, self.get_players).start()
+        self.get_players()
 
     def get_id(self):
         data_packet = {
@@ -59,6 +70,12 @@ class Connection:
         assert len(b'\00') == 1
         self.client_socket.sendall(b'\00')
         return data['id']
+    
+    def get_players(self):
+        data_packet = {
+            'request': 'players',
+        }
+        self.client_socket.sendall(json.dumps(data_packet).encode('utf-8'))
 
     def download_map(self):
         data_packet = {
@@ -99,6 +116,10 @@ class Connection:
         client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
         
         return client_socket
+    
+    def close_connection(self):
+        self.client_socket.shutdown(socket.SHUT_RDWR)
+        self.client_socket.close()
 
     def send_fight_action(self, character, fight_action):
         initial_state = {
@@ -117,6 +138,13 @@ class Connection:
         }
         logging.info(initial_state)
         return self.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
+    
+    def send_message(self, message):
+        initial_state = {
+            'player_id': self.player_id,
+            'message': message,
+        }
+        return self.client_socket.sendall(json.dumps(initial_state).encode('utf-8'))
 
     def send_tile_update(self, character):
         self.send_action(character, "farm")
@@ -127,8 +155,9 @@ class Connection:
     def receive_messages(self):
         """Thread to receive messages from the server and update player positions."""
         global player_positions
+        global global_exit_flag
         logging.info("starting receive messages thread")
-        while True:
+        while not (global_exit_flag or self.exit_flag):
             try:
                 data = self.client_socket.recv(1024).decode('utf-8')
                 if not data:
@@ -143,11 +172,15 @@ class Connection:
                             self.handle_command(command)
                         except json.JSONDecodeError:
                             logging.error("Received invalid JSON:", message)
+                        except ExitThread:
+                            logging.info("Worker thread exiting due to ExitThread exception.")
+                            return
             except Exception as e:
                 logging.error(f"Error receiving data: {e}")
                 logging.error(repr(traceback.print_exc(e)))
 
     def handle_command(self, command):
+        global global_exit_flag
         logging.info(f"received command : {command}")
         self.message_history.add_message(str(command))
         if command.get('new_position'):
@@ -161,6 +194,10 @@ class Connection:
             if player_id == self.player_id and command["amount"]:
                 self.map.event_manager.publish("xp_received", player_id=player_id, amount=command["amount"])
         elif command.get("message"):
+            if command["message"] == "quit":
+                global_exit_flag = True
+                self.exit_flag = True
+                raise ExitThread()
             if command["message"] == "damage_received":
                 # hurt player
                 self.map.event_manager.publish("damage_received")

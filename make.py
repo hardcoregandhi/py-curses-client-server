@@ -17,7 +17,8 @@ def package(script_name):
         subprocess.run([
             'pyinstaller', 
             script_name, 
-            '-F', 
+            '-F',
+            '--add-data', "../config.ini;.",
             '--distpath', build_dir, 
             '--workpath', build_dir, 
             '--specpath', spec_dir

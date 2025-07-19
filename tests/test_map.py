@@ -105,6 +105,8 @@ class TestMap(unittest.TestCase):
                 tile2.id = 0
                 self.assertEqual(str(tile1), str(tile2))
 
+        return True
+
     def assertTrue(self, first, msg=None):
         try:
             super().assertTrue(first, msg)
@@ -120,14 +122,17 @@ class TestPosition2D(unittest.TestCase):
         pos = Position2D(3, 4)
         self.assertEqual(pos.x, 3)
         self.assertEqual(pos.y, 4)
+        return True
 
     def test_position_str(self):
         pos = Position2D(3, 4)
         self.assertEqual(str(pos), "3, 4")
+        return True
 
     def test_position_to_dict(self):
         pos = Position2D(3, 4)
         self.assertEqual(pos.to_dict(), {'x': 3, 'y': 4})
+        return True
 
     def test_from_list_valid(self):
         pos = Position2D.from_list([5, 6])
@@ -158,10 +163,12 @@ class TestGameMap(unittest.TestCase):
         self.assertEqual(closest_player_id, 1)
         closest_player_id, closest_player_pos = self.game_map.find_closest_player_to_player(0, [9,9], self.players)
         self.assertEqual(closest_player_id, 3)
+        return True
 
     def test_find_closest_player_no_players(self):
         closest_player_id, closest_player_pos = self.game_map.find_closest_player_to_player(1, [0,0], [])
         self.assertIsNone(closest_player_id)  # No players should return None
+        return True
 
 
 if __name__ == '__main__':

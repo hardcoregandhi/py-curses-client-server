@@ -24,17 +24,21 @@ class GameWorld:
 
 
 def add_upnp_port_mapping():
-    upnp = miniupnpc.UPnP()
+    try:
+        upnp = miniupnpc.UPnP()
 
-    upnp.discoverdelay = 10
-    upnp.discover()
+        upnp.discoverdelay = 10
+        upnp.discover()
 
-    upnp.selectigd()
+        upnp.selectigd()
 
-    port = 43210
+        port = 43210
 
-    # addportmapping(external-port, protocol, internal-host, internal-port, description, remote-host)
-    upnp.addportmapping(port, 'TCP', upnp.lanaddr, port, 'testing', '')
+        # addportmapping(external-port, protocol, internal-host, internal-port, description, remote-host)
+        upnp.addportmapping(port, 'TCP', upnp.lanaddr, port, 'testing', '')
+    except Exception:
+        logging.error("unable to open port")
+
 
     return f"UPnP initialized. Mapped port {port}."
 
@@ -46,11 +50,12 @@ from map import GameMapEncoderDecoder, Tile
 import struct
 from struct import pack
 from event_manager import EventManager
+import random 
 
 class GameServer:
     def __init__(self, host='0.0.0.0', port=43210):
         self.host = host
-        self.port = port
+        self.port = port# + random.randrange(0,100)
         self.event_manager = EventManager()
         self.world = GameWorld(self.event_manager)
         self.players = {}  # Dictionary to hold player data
@@ -102,6 +107,8 @@ class GameServer:
             while True:
                 try:
                     data = client_socket.recv(1024).decode('utf-8')
+                except ConnectionResetError:
+                    return
                 except Exception as ex:
                     logging.error(f"Lost connection {client_socket}")
                     logging.error(ex)
@@ -139,6 +146,7 @@ class GameServer:
             client_socket.close()
             del self.players[player_id]  # Remove player from the list
             logging.info(f"Player {player_id} disconnected.")
+            self.broadcast_message(f"Player {player_id} disconnected")
 
     def send_map(self, sock, map_data):
         logging.info("sending map")
@@ -162,19 +170,30 @@ class GameServer:
                 'id': player_id
             }
             self.players[player_id]['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
+        if command.get("request") and command['request'] == 'players':
+            for pid, player in self.players.items():
+                if pid != player_id:
+                    data_packet = {
+                        'player_id': pid,
+                        'new_position': player['position']
+                    }
+                    self.players[player_id]['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
         if command.get("request") and command['request'] == 'map':
             data_packet = {
                 'request': 'map',
                 'map': self.world.game_map
             }
             data = json.dumps(data_packet, cls=GameMapEncoderDecoder).encode('utf-8')
-
             compressed_data = gzip.compress(data)
-            # data = json.dumps(data_packet).encode('utf-8')
 
             self.send_map(self.players[player_id]['socket'], compressed_data)
 
-        if command.get('action') and command['action'] == 'move':
+        if command.get('action') and command['action'] == 'client_disconnecting':
+            self.message_player(player_id, "quit")
+            # self.players[player_id]['socket'].shutdown(socket.SHUT_RDWR)
+            self.players[player_id]['socket'].close()
+            return
+        elif command.get('action') and command['action'] == 'move':
             position = command['position']
             self.move_player(player_id, position)
         elif command.get('action') and command['action'] == 'work':
@@ -264,6 +283,10 @@ class GameServer:
         for _, player in self.players.items():
             logging.info(f"Broadcasting {data_packet}")
             player['socket'].sendall(json.dumps(data_packet).encode('utf-8'))
+
+    def broadcast_message(self, message):
+        for pid, player in self.players.items():
+            self.message_player(pid, message)
 
     def notify_players(self, player_id, new_position):
         """Notify all players of the updated position."""

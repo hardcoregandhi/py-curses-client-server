@@ -4,6 +4,7 @@ import logging
 from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left
 from character import Character
 from fight import FightAction
+import sys
 
 class View(Enum):
     WORLD = "world"
@@ -27,6 +28,7 @@ class WorldView(BaseView):
         
         if command in ["q", "quit"]:
             output = "Quitting..."  # Placeholder for future functionality
+            connection.send_action(character, "client_disconnecting")
         elif command in ["w", "work"]:
             if character.stats.stamina:
                 output = "Working tile..."

@@ -26,6 +26,8 @@ class FightManager:
         self.fight_radius = 3
         self.aggressor_action = FightAction.NONE
         self.defender_action = FightAction.NONE
+        self.action_round_thread = None
+        self.exit_flag = False
         nearest_opponent = self.find_other_near_player(self.aggressor, self.position, players, world.game_map)
         if (nearest_opponent):
             self.defender = nearest_opponent
@@ -78,4 +80,5 @@ class FightManager:
         
     def start_next_round(self):
         self.aggressor_action = self.defender_action = FightAction.NONE
-        threading.Timer(5, self.action_round).start()
+        if not self.exit_flag:
+            self.action_round_thread = threading.Timer(5, self.action_round).start()
