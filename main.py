@@ -127,8 +127,9 @@ if __name__ == "__main__":
 
     config_file='config.ini'
     if os.path.exists(config_file):
-        cfg = configparser.read('config.ini')
-        defaultIP = cfg["DEFAULT"]["ServerIP"]
+        config = configparser.ConfigParser()
+        cfg = config.read('config.ini')
+        defaultIP = config["DEFAULT"]["ServerIP"]
     else:
         defaultIP = "127.0.0.1"
 
