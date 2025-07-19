@@ -1,7 +1,7 @@
 from enum import Enum
 import curses
 import logging
-from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left
+from draw import draw, ScreenMeasurements, create_health_bar, draw_bottom, draw_top_left, draw_bottom_right
 from character import Character
 from fight import FightAction
 import sys
@@ -19,58 +19,98 @@ class BaseView:
         raise NotImplementedError("Subclasses should implement this method.")
 
 class WorldView(BaseView):
+    def __init__(self):
+        # Define available actions
+        self.actions = {
+            "w": ("Work on a tile", self.work_action),
+            "a": ("Activate a tile", self.activate_action),
+            # "r": ("Run a command", self.run_action),
+            "l": ("Level up", self.level_up_action),
+            "f": ("Fight", self.fight_action),
+            "q": ("Quit the game", self.quit_action),
+        }
+    
     def draw(self, screen, output, input_buffer, connection, character, player_positions):
         draw(screen, output, input_buffer, connection, character, player_positions)
+        draw_bottom_right(screen, output, input_buffer, connection, character, player_positions, self.actions)
 
     def handle_input(self, command, character, connection):
         """Basic character actions."""
         output = ""
-        
-        if command in ["q", "quit"]:
-            output = "Quitting..."  # Placeholder for future functionality
-            connection.send_action(character, "client_disconnecting")
-        elif command in ["w", "work"]:
-            if character.stats.stamina:
-                output = "Working tile..."
-                connection.send_action(character, "work")
-            else:
-                output = "Not enough stamina to work."
-        elif command in ["a", "activate"]:
-            if character.stats.stamina:
-                output = "Activating tile..."
-                connection.send_action(character, "activate")
-            else:
-                output = "Not enough stamina to activate."
-        elif command in ["r", "run"]:
-            output = "Running command..."  # Placeholder for future functionality
+
+        if command in self.actions:
+            action_description, action_function = self.actions[command]
+            output = action_function(character, connection)
         else:
             output = f"Unknown command: {command}"
+            # "Available actions:\n" + "\n".join(f"{key}: {desc[0]}" for key, desc in self.actions.items()
 
         return output
+
+    def quit_action(self, character, connection):
+        connection.send_action(character, "client_disconnecting")
+        return "Quitting..."
+
+    def work_action(self, character, connection):
+        if character.stats.stamina:
+            connection.send_action(character, "work")
+            return "Working tile..."
+        else:
+            return "Not enough stamina to work."
+
+    def activate_action(self, character, connection):
+        if character.stats.stamina:
+            connection.send_action(character, "activate")
+            return "Activating tile..."
+        else:
+            return "Not enough stamina to activate."
+
+    def run_action(self, character, connection):
+        return "Running command..."  # Placeholder for future functionality
+
+    def level_up_action(self, character, connection):
+        connection.map.event_manager.publish("switch_view", new_view=View.LEVEL_UP)
+        return "Switching View"
+
+    def fight_action(self, character, connection):
+        connection.send_action(character, "fight")
+        return "Switching View"
+
 
 class LevelUpView(BaseView):
     def __init__(self):
         self.level_up_win = None
+        # Define available actions as an instance attribute
+        self.actions = {
+            "b": ("Back to world view", self.back_to_world_view),
+            # You can add more actions here if needed
+        }
 
     def draw(self, screen, output, input_buffer, connection, character, player_positions):
+        draw_top_left(screen, character)
         self.draw_top(screen, output, input_buffer, connection, character, player_positions)
         self.draw_bottom(screen, output, input_buffer, connection, character, player_positions)
-
+        draw_bottom_right(screen, output, input_buffer, connection, character, player_positions, self.actions)
 
     def handle_input(self, command, character, connection):
         try:
             # Attempt to cast the command to an integer
+            if command in self.actions:
+                action_description, action_method = self.actions[command]
+                return action_method(character, connection)  # Call the corresponding action method
+
             command = int(command)
         except ValueError:
             # Handle the case where the input is not a valid integer
             print("Invalid input: Please enter a valid integer.")
             return "Invalid input: Please enter a valid integer."
+
         if character.stats.xp >= character.stats.level_cost:
             input_map = dict()
             for idx, (stat_name, stat_value) in enumerate(character.stats.levels.__dict__.items(), start=1):
                 input_map[idx] = stat_name
 
-            if not command in input_map:
+            if command not in input_map:
                 return "Invalid input: Please enter a valid integer."
             stat_name = input_map[command]
             stat_value = getattr(character.stats.levels, stat_name)
@@ -80,12 +120,18 @@ class LevelUpView(BaseView):
                 stat_value = getattr(character.stats, stat_name)
                 setattr(character.stats, stat_name, stat_value + 1)
             character.spend_xp(character.stats.level_cost)
+            character.stats.level_cost+=1
+            character.stats.level+=1
             message = f"{stat_name} increased by 1."
             print(message)  # Print to console for debugging
             return message
         else:
             print("Not enough XP to increase the stat.")  # Print to console for debugging
             return "Not enough XP to increase the stat."
+
+    def back_to_world_view(self, character, connection):
+        connection.map.event_manager.publish("switch_view", new_view=View.WORLD)
+        return "Switching View"
 
     def draw_top(self, screen, output, input_buffer, connection, character, player_positions):
             # screen.stdscr.clear()
@@ -95,7 +141,10 @@ class LevelUpView(BaseView):
             height, width = screen.half_height, screen.width  # Height and width of the level-up menu
             start_y = 0  # Start at the top of the screen
             start_x = 0  # Start at the left of the screen
-            self.level_up_win = curses.newwin(height, width, start_y, start_x)
+            self.level_up_win = screen.top_panel2 # HACK Im trying out using an existing panel instead
+
+        self.level_up_win.clear()
+        self.level_up_win.box()
 
         # Draw the level-up menu
         self.level_up_win.box()  # Draw a box around the window
@@ -142,12 +191,18 @@ class LevelUpView(BaseView):
 class BattleView(BaseView):
     def __init__(self):
         self.battle_win = None
+        self.actions = {
+            "1": ("Stab", None),
+            "2": ("Slash", None),
+            "3": ("Parry", None),
+        }
 
     def draw(self, screen, output, input_buffer, connection, character, player_positions):
         # self.draw_battle_interface(screen, output, input_buffer, player_character, enemy_character)
         self.draw_battle_interface_in_map_area(screen.top_panel2, screen, output, input_buffer, character, character)
         draw_top_left(screen, character)
         draw_bottom(screen, output, input_buffer, connection)
+        draw_bottom_right(screen, output, input_buffer, connection, character, player_positions, self.actions)
 
     def handle_input(self, command, character, connection):
         """Handle battle actions based on player input."""

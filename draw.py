@@ -14,10 +14,12 @@ class ScreenMeasurements:
 
         # Calculate the width for the top panels
         half_width = self.width // 2  # Each top panel will take half of the width
+        third_width = (self.width // 3)
 
         self.top_panel1 = curses.newwin(self.top_panel_height, half_width, 0, 0)
         self.top_panel2 = curses.newwin(self.top_panel_height, half_width, 0, half_width)
-        self.bottom_panel = curses.newwin(self.half_height, self.width, self.top_panel_height, 0)
+        self.bottom_panel = curses.newwin(self.half_height, third_width*2, self.top_panel_height, 0)
+        self.bottom_right_panel = curses.newwin(self.half_height, third_width, self.top_panel_height, third_width * 2)
     def round_to_even(self, n):
         return n if n % 2 == 0 else n - 1
     
@@ -155,3 +157,15 @@ def draw_bottom(screen, output, input_buffer, connection):
         current_row += 1
 
     screen.bottom_panel.refresh()
+
+def draw_bottom_right(screen, output, input_buffer, connection, character, player_positions, actions):
+    screen.bottom_right_panel.clear()
+    screen.bottom_right_panel.box()
+    screen.bottom_right_panel.addstr(0, 1, "Actions", curses.A_BOLD)
+    current_row = 2
+    for key, desc in actions.items():
+        # import pdb; pdb.set_trace()
+        screen.bottom_right_panel.addstr(current_row, 1, f"{key}: {desc[0]}")
+        current_row += 1
+    screen.bottom_right_panel.refresh()
+    return

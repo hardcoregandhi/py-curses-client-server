@@ -16,6 +16,10 @@ class GameState:
         self.event_manager = event_manager
         self.event_manager.subscribe("fight_initiated", self.fight_initiated)
         self.event_manager.subscribe("fight_concluded", self.fight_concluded)
+        self.event_manager.subscribe("switch_view", self.switch_view)
+
+    def switch_view(self, *args, **kwargs):
+        self.current_view = View(kwargs.get('new_view'))
         
     def fight_initiated(self):
         self.current_view = View.BATTLE
@@ -55,17 +59,7 @@ def handle_input(key, input_buffer, output, character, connection, game_state):
     elif key == curses.KEY_ENTER or key == 10:  # Handle enter
         # Process the command
         command = input_buffer.strip()
-        # Handle the view change here, otherwise pass the handling to the view's handle_input()
-        if command in ["l", "level", "levelup"]:
-            game_state.current_view = View.LEVEL_UP
-            return "", "Switching View"
-        elif command in ["f", "fight"]:
-            # game_state.current_view = View.BATTLE
-            connection.send_action(character, "fight")
-            return "", "Switching View"
-        elif command in ["b", "back"]:
-            game_state.current_view = View.WORLD
-            return "", "Switching View"
+        # Pass the handling to the view's handle_input()
         output = Views[game_state.current_view].handle_input(command, character, connection)
         input_buffer = ""  # Clear the input buffer after processing
     elif key == curses.KEY_UP:  # Move up

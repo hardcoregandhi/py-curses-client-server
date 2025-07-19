@@ -4,7 +4,7 @@
         {
             "label": "Run Server",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}/.venv/Scripts/python",
             "args": ["server.py"],
             "group": {
                 "kind": "build",
@@ -20,7 +20,7 @@
         {
             "label": "Run Main",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}/.venv/Scripts/python",
             "args": ["main.py"],
             "group": {
                 "kind": "build",
